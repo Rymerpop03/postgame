@@ -327,3 +327,60 @@ async def register(client: httpx.AsyncClient, identity: Identity) -> Any:
     created = await sign_up(client, identity)
     assert created.status_code == 202, created.text
     return await sign_in(client, identity)
+
+
+# ------------------------------------------------------------------- CI failure reporting
+#
+# GitHub shows job logs only to signed-in users, so on a public repository anyone — and any
+# tool — without an account sees "Process completed with exit code 1" and nothing else. The
+# first two CI runs were diagnosed blind because of it. Annotations are different: they are
+# public, they appear inline on the commit page, and they are readable through the API with
+# no credentials. So each failure becomes one, carrying the test id and its assertion lines.
+#
+# Written to sys.__stdout__, not print(): pytest captures output around tests, and a
+# workflow command swallowed by the capture would be the same blindness with extra steps.
+
+ANNOTATION_LINES = 6
+ANNOTATION_CHARS = 1500
+
+
+def _escape_data(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_property(text: str) -> str:
+    return _escape_data(text).replace(":", "%3A").replace(",", "%2C")
+
+
+def github_annotation(nodeid: str, path: str, line: int, longrepr: str, when: str) -> str:
+    """One `::error` workflow command for a failed test. Pure, so it can be tested."""
+    detail = [ln for ln in longrepr.splitlines() if ln.startswith("E ")][:ANNOTATION_LINES]
+    if not detail:
+        detail = [ln for ln in longrepr.splitlines() if ln.strip()][-ANNOTATION_LINES:]
+    message = "\n".join(detail)[:ANNOTATION_CHARS] or "failed"
+    title = nodeid if when == "call" else f"{nodeid} (error in {when})"
+    return (
+        f"::error file=api/{_escape_property(path)},line={line},"
+        f"title={_escape_property(title)}::{_escape_data(message)}"
+    )
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    if not os.environ.get("GITHUB_ACTIONS") or not report.failed:
+        return
+    import sys
+
+    path, lineno, _ = report.location
+    line = (lineno or 0) + 1
+    out = sys.__stdout__
+    if out is not None:
+        # The leading newline matters: pytest's progress line ("....F") is still open when
+        # this runs, and GitHub only honours a workflow command at the start of a line. The
+        # first version wrote `F::error ...`, which a probe showed GitHub would have ignored.
+        posix = path.replace("\\", "/")
+        out.write(
+            "\n"
+            + github_annotation(report.nodeid, posix, line, report.longreprtext, report.when)
+            + "\n"
+        )
+        out.flush()

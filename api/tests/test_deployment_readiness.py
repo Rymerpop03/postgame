@@ -413,3 +413,36 @@ class TestImportHasNoSideEffects:
             encoding="utf-8"
         )
         assert '"app.main:create_app", factory=True' in source
+
+
+class TestCiFailureAnnotations:
+    """GitHub hides job logs from anyone not signed in; annotations are public. These keep the
+    annotation format honest, since a malformed workflow command is silently ignored."""
+
+    def test_a_failure_becomes_one_error_command(self) -> None:
+        from tests.conftest import github_annotation
+
+        line = github_annotation(
+            "tests/test_x.py::test_y",
+            "tests/test_x.py",
+            12,
+            "    def test_y():\n>       assert 1 == 2\nE       assert 1 == 2\n",
+            "call",
+        )
+        assert line.startswith("::error file=api/tests/test_x.py,line=12,title=")
+        assert line.endswith("::E       assert 1 == 2")
+        assert "\n" not in line
+
+    def test_property_separators_are_escaped(self) -> None:
+        """A `,` or `:` left raw in the title ends the property early, and GitHub drops the
+        annotation without a word."""
+        from tests.conftest import github_annotation
+
+        line = github_annotation("a.py::t[x,y:z]", "a.py", 1, "E boom", "call")
+        title = line.split("title=", 1)[1].split("::", 1)[0]
+        assert "," not in title and ":" not in title.replace("%3A", "")
+
+    def test_setup_errors_say_so(self) -> None:
+        from tests.conftest import github_annotation
+
+        assert "(error in setup)" in github_annotation("a.py::t", "a.py", 1, "E x", "setup")
