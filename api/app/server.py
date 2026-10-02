@@ -51,8 +51,11 @@ def uvicorn_options(settings: Settings) -> dict[str, Any]:
         #
         # The cap needs both settings. `h11_max_incomplete_event_size` is honoured only by
         # uvicorn's h11 implementation, and `http="auto"` selects httptools whenever it is
-        # installed — which `uvicorn[standard]` always does. So setting the limit alone did
-        # nothing, and the probe still returned 200 for 2 MB of headers.
+        # installed — which `uvicorn[standard]` always did. So setting the limit alone did
+        # nothing, and the probe still returned 200 for 2 MB of headers. The extra was
+        # dropped after the first CI run (DEPENDENCIES.md), so httptools is no longer
+        # installed at all — and this pin stays, so that reinstalling it could not quietly
+        # switch parsers and lose the cap.
         #
         # Pinning h11 costs some request throughput against httptools' C parser. Worth it: a
         # bounded header buffer is a control we can verify here, whereas the alternative is
@@ -60,6 +63,11 @@ def uvicorn_options(settings: Settings) -> dict[str, Any]:
         # with a measured need, and only alongside a proxy-level cap that is actually checked.
         "http": "h11",
         "h11_max_incomplete_event_size": 16 * 1024,
+        # No WebSocket support at all. The app has no WebSocket routes, and uvicorn's default
+        # of "auto" enables upgrades whenever a WebSocket library happens to be installed —
+        # which `uvicorn[standard]` used to guarantee. Stated, so it no longer depends on
+        # what is in the environment.
+        "ws": "none",
         # Idle connections are cheap individually and not in aggregate. Both are also the
         # sort of default that gets forgotten, so they are stated.
         "timeout_keep_alive": 5,
@@ -84,7 +92,9 @@ def main() -> None:
     import uvicorn
 
     settings = load_settings()
-    uvicorn.run("app.main:app", **uvicorn_options(settings))
+    # The factory, not a module-level instance: see the note at the end of app/main.py.
+    # Uvicorn calls `create_app()` itself, which reads the same cached settings as above.
+    uvicorn.run("app.main:create_app", factory=True, **uvicorn_options(settings))
 
 
 if __name__ == "__main__":

@@ -6,13 +6,15 @@
 # same bytes. pyproject.toml keeps lower bounds, which is what a project needs to declare;
 # a deployment needs this.
 #
+# A line ending in `; <marker>` applies only where that marker holds — `colorama` on Windows,
+# for instance — so pip skips it on Linux and it never reaches the production image.
+# Generation refuses to write a lock that would miss a dependency on Linux, which is where
+# this ships, even when it runs on a machine where that dependency does not apply.
+#
 # NO HASHES YET. A hash per artefact is what makes a lock resist a package being replaced on
 # the index after the fact, and generating them needs network access at generation time.
 # Phase 16. Until then this pins versions and not contents, and says so rather than letting
 # the word "lock" imply more than it delivers.
-#
-# Generated on Python 3.13.14 for win32. Markers were evaluated against that
-# environment, so a platform-specific dependency may be missing on another one.
 
 ast-serialize==0.6.0
 boolean-py==5.0
@@ -23,7 +25,7 @@ defusedxml==0.7.1
 filelock==3.32.2
 hypothesis==6.165.1
 iniconfig==2.3.0
-librt==0.13.0
+librt==0.13.0 ; platform_python_implementation != "PyPy"
 license-expression==30.4.4
 markdown-it-py==4.2.0
 mdurl==0.1.2
@@ -49,4 +51,4 @@ ruff==0.16.1
 sortedcontainers==2.4.0
 tomli==2.4.1
 tomli-w==1.2.0
-urllib3==2.7.0
+urllib3==2.8.0

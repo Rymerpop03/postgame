@@ -110,9 +110,16 @@ def _resolve(root: Path, relative: str) -> Path:
         raise HTTPException(status_code=404, detail="Not found.")
     if not candidate.is_file():
         raise HTTPException(status_code=404, detail="Not found.")
-    if any(part.startswith(".") and part != WELL_KNOWN for part in candidate.parts):
+
+    # Both rules below look only at the path *inside* the root. The first version checked
+    # `candidate.parts` — the absolute path — so a checkout living under any directory named
+    # `test`, `scratchpad` or `.anything` refused every file it had. It passed CI only because
+    # `/home/runner/work/...` happens to contain none of those names, and it was caught by a
+    # rehearsal of CI run from a scratch directory, where every asset came back 404.
+    inside = candidate.relative_to(root).parts
+    if any(part.startswith(".") and part != WELL_KNOWN for part in inside):
         raise HTTPException(status_code=404, detail="Not found.")
-    if any(part.lower() in BLOCKED_DIRS for part in candidate.parts[:-1]):
+    if any(part.lower() in BLOCKED_DIRS for part in inside[:-1]):
         raise HTTPException(status_code=404, detail="Not found.")
     if candidate.name.lower() in BLOCKED_NAMES:
         raise HTTPException(status_code=404, detail="Not found.")
@@ -139,7 +146,7 @@ def _headers(path: Path, *, immutable: bool) -> dict[str, str]:
     # 9116 requires to be in the future, so a copy cached for a year is a copy that is
     # invalid for most of that year — and the whole point of the file is that somebody can
     # read a current contact address off it.
-    if WELL_KNOWN in path.parts:
+    if path.parent.name == WELL_KNOWN:
         return {"Cache-Control": "public, max-age=3600"}
     return {"Cache-Control": "public, max-age=31536000, immutable"}
 

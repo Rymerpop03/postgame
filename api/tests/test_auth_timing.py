@@ -31,9 +31,11 @@ from tests.conftest import app_database_url
 def _load_gate() -> ModuleType:
     """Import tools/check_login_timing.py by path.
 
-    `from tools import ...` picks up an unrelated `tools` package that happens to be
-    installed in site-packages, and the resulting ImportError names our file while
-    describing theirs. Loading by path says which file is meant.
+    `from tools import ...` picked up a stray top-level `tools` package in site-packages,
+    and the resulting ImportError named our file while describing theirs. It turned out to
+    come from Mako 1.4.0, a dependency of Alembic, which PyPI yanked for exactly that; the
+    lock now pins 1.4.3 and CI refuses yanked releases. Loading by path stays, because it
+    says which file is meant regardless of what else is installed.
     """
     path = Path(__file__).resolve().parent.parent / "tools" / "check_login_timing.py"
     spec = importlib.util.spec_from_file_location("pg_check_login_timing", path)

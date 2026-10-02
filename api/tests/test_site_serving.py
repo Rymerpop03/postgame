@@ -272,3 +272,37 @@ class TestStagingIsNotIndexable:
         # Sending it in production would deindex the entire site, quietly, and the symptom
         # arrives weeks later as "our traffic disappeared".
         assert "x-robots-tag" not in {k.lower() for k in (await client.get("/")).headers}
+
+
+class TestWhereTheSiteLives:
+    """The blocking rules must look only at the path inside the frontend root.
+
+    The first version checked the absolute path, so a checkout under any directory named
+    `test`, `scratchpad` or `.something` refused every file — the whole site 404'd while
+    every API route kept working. CI never saw it, because its checkout path happens to
+    contain none of those names. A rehearsal of CI run from a scratch directory did.
+    """
+
+    @pytest.fixture
+    async def nested(self, tmp_path: Path) -> httpx.AsyncClient:
+        root = tmp_path / ".hidden" / "test" / "scratchpad" / "postgame"
+        (root / "js").mkdir(parents=True)
+        (root / "test").mkdir()
+        (root / ".well-known").mkdir()
+        # The real index.html, because boot checks the CSP hash against it.
+        (root / "index.html").write_bytes((Path(FRONTEND) / "index.html").read_bytes())
+        (root / "js" / "app.js").write_text("// app\n", encoding="utf-8")
+        (root / "test" / "dev.html").write_text("<p>dev</p>", encoding="utf-8")
+        (root / ".well-known" / "security.txt").write_text("Contact: x\n", encoding="utf-8")
+        async with make_client(create_app(make_settings(frontend_dir=root))) as c:
+            yield c
+
+    async def test_assets_are_served_from_a_root_with_awkward_ancestors(
+        self, nested: httpx.AsyncClient
+    ) -> None:
+        assert (await nested.get("/")).status_code == 200
+        assert (await nested.get("/js/app.js")).status_code == 200
+        assert (await nested.get("/.well-known/security.txt")).status_code == 200
+
+    async def test_the_rules_still_apply_inside_it(self, nested: httpx.AsyncClient) -> None:
+        assert (await nested.get("/test/dev.html")).status_code == 404

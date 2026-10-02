@@ -17,8 +17,10 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"   # paste into PG_S
 .venv/Scripts/python -m app.server
 ```
 
-Use `python -m app.server`, not `uvicorn app.main:app`. The entrypoint sets things that
-cannot be fixed in middleware — see [Server-layer hardening](#server-layer-hardening).
+Use `python -m app.server`. The entrypoint sets things that cannot be fixed in middleware —
+see [Server-layer hardening](#server-layer-hardening) — and it is now the only way in:
+`app.main` exposes a factory and no `app` instance, so `uvicorn app.main:app`, which would
+skip every one of those settings, fails immediately instead of starting a weaker server.
 
 ## Checks
 
@@ -120,7 +122,8 @@ committed.
 Probing the running server found a 2 MB request header accepted with a 200 — arbitrary
 per-connection allocation for any anonymous caller. `h11_max_incomplete_event_size` alone did
 nothing, because it is honoured only by uvicorn's h11 implementation and `http="auto"` selects
-httptools whenever it is installed, which `uvicorn[standard]` always does.
+httptools whenever it is installed, which `uvicorn[standard]` always did. The extra has since
+been dropped, so httptools is not installed at all; the pin stays as the guarantee.
 
 Both are now set. The threshold is not an exact byte count — h11 bounds the *incomplete-event*
 buffer, so TCP chunking puts the real cutoff between 32 KB and 70 KB — but 2 MB is refused

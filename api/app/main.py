@@ -182,4 +182,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+# No module-level `app = create_app()`. There used to be one, and it meant that *importing*
+# this module read the environment and validated a full production-grade configuration. That
+# worked on the development machine only because `api/.env` exists there; on a fresh checkout
+# — which is what CI is — every test module that imported `create_app` failed during
+# collection with "Field required" for settings no test even uses, and pytest exited 2 before
+# running anything. The first CI run is how that was found.
+#
+# The server builds the app through the factory instead (`app/server.py`), so importing this
+# module has no side effects. It also means `uvicorn app.main:app` no longer starts anything,
+# which is the right outcome: that command line silently skips every option server.py sets.

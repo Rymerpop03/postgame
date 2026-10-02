@@ -9,7 +9,7 @@ requires-python = ">=3.13,<3.14"
 # exact pinning of these and every transitive dependency lives in requirements.lock.
 dependencies = [
   "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
+  "uvicorn>=0.30",
   "pydantic>=2.9",
   "pydantic-settings>=2.5",
   "psycopg[binary,pool]>=3.2",

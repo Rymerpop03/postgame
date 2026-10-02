@@ -75,9 +75,25 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      # From the lock, not from pyproject.toml. Installing `.[dev]` resolves whatever PyPI
+      # holds on the day, so CI tested versions the Docker image would never ship — the first
+      # run here had SQLAlchemy 2.1 against a lock of 2.0. `--no-deps` leaves pip nothing to
+      # resolve, and `pip check` then proves the lock is complete on Linux: it fails if any
+      # installed package is missing a dependency it needs on this platform.
       - name: Install
         working-directory: api
-        run: pip install -e ".[dev]"
+        run: |
+          set -o pipefail
+          pip install --no-deps -r requirements.lock -r requirements-dev.lock 2>&1 | tee install.log
+          # pip installs a yanked release when it is pinned exactly, and only warns. The lock
+          # carried one — Mako 1.4.0, yanked for installing a stray top-level `tools` package
+          # that shadowed this project's own `tools/` — so the warning is an error here.
+          if grep -qi "yanked version" install.log; then
+            echo "::error::requirements lock pins a yanked release; see install.log above"
+            exit 1
+          fi
+          pip install --no-deps -e .
+          pip check
 
       - name: ruff
         working-directory: api
@@ -129,9 +145,25 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      # From the lock, not from pyproject.toml. Installing `.[dev]` resolves whatever PyPI
+      # holds on the day, so CI tested versions the Docker image would never ship — the first
+      # run here had SQLAlchemy 2.1 against a lock of 2.0. `--no-deps` leaves pip nothing to
+      # resolve, and `pip check` then proves the lock is complete on Linux: it fails if any
+      # installed package is missing a dependency it needs on this platform.
       - name: Install
         working-directory: api
-        run: pip install -e ".[dev]"
+        run: |
+          set -o pipefail
+          pip install --no-deps -r requirements.lock -r requirements-dev.lock 2>&1 | tee install.log
+          # pip installs a yanked release when it is pinned exactly, and only warns. The lock
+          # carried one — Mako 1.4.0, yanked for installing a stray top-level `tools` package
+          # that shadowed this project's own `tools/` — so the warning is an error here.
+          if grep -qi "yanked version" install.log; then
+            echo "::error::requirements lock pins a yanked release; see install.log above"
+            exit 1
+          fi
+          pip install --no-deps -e .
+          pip check
 
       - name: Bootstrap roles and databases
         working-directory: api
@@ -223,12 +255,40 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      # From the lock, not from pyproject.toml. Installing `.[dev]` resolves whatever PyPI
+      # holds on the day, so CI tested versions the Docker image would never ship — the first
+      # run here had SQLAlchemy 2.1 against a lock of 2.0. `--no-deps` leaves pip nothing to
+      # resolve, and `pip check` then proves the lock is complete on Linux: it fails if any
+      # installed package is missing a dependency it needs on this platform.
       - name: Install
         working-directory: api
-        run: pip install -e ".[dev]"
+        run: |
+          set -o pipefail
+          pip install --no-deps -r requirements.lock -r requirements-dev.lock 2>&1 | tee install.log
+          # pip installs a yanked release when it is pinned exactly, and only warns. The lock
+          # carried one — Mako 1.4.0, yanked for installing a stray top-level `tools` package
+          # that shadowed this project's own `tools/` — so the warning is an error here.
+          if grep -qi "yanked version" install.log; then
+            echo "::error::requirements lock pins a yanked release; see install.log above"
+            exit 1
+          fi
+          pip install --no-deps -e .
+          pip check
 
       - name: pip-audit
         working-directory: api
         # Zero unresolved highs. Every medium needs a written decision in
         # postgame/DEPENDENCIES.md before it can be ignored here.
-        run: pip-audit --strict --desc
+        #
+        # The lock files, not the environment. `--strict` fails on anything it cannot look
+        # up, and in an installed environment that includes this project, which is not on
+        # PyPI — the whole of the first run's failure was the audit stopping at `postgame-api`
+        # without reaching a single real dependency. `--skip-editable` does not help: strict
+        # mode counts a skip as a failure too. Auditing the locks audits exactly what ships
+        # plus the test tooling, and nothing else.
+        #
+        # Run this way locally before committing, it found three advisories in urllib3 2.7.0
+        # (PYSEC-2026-4175/4176/4177, test tooling only), fixed by pinning 2.8.0.
+        run: >-
+          pip-audit --strict --desc --no-deps --disable-pip
+          -r requirements.lock -r requirements-dev.lock

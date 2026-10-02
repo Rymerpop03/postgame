@@ -369,3 +369,47 @@ class TestContainerDefinition:
         ]
         for needed in ("postgame", "postgame/", "postgame/index.html", "postgame/.well-known/"):
             assert needed not in ignored
+
+
+class TestImportHasNoSideEffects:
+    """Found by the first CI run, and invisible on the development machine.
+
+    `app/main.py` used to end with `app = create_app()`, so importing it validated a full
+    configuration from the environment. Locally `api/.env` supplied one. A fresh checkout —
+    which is all CI ever is — has no `.env`, so every test module importing `create_app` failed
+    during collection and pytest exited 2 before running a single test. 529 passing tests here
+    and none at all there, for one line.
+    """
+
+    def test_importing_the_app_needs_no_configuration(self, tmp_path: Path) -> None:
+        import os
+        import subprocess
+        import sys
+
+        api = Path(__file__).resolve().parent.parent
+        # No PG_* variables and a working directory with no .env: what a fresh clone sees.
+        env = {k: v for k, v in os.environ.items() if not k.startswith("PG_")}
+        env["PYTHONPATH"] = str(api)
+        result = subprocess.run(
+            [sys.executable, "-c", "import app.main, app.server"],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+
+    def test_there_is_no_module_level_app_to_run_around_the_server(self) -> None:
+        """`uvicorn app.main:app` would skip every hardened option in app/server.py. With no
+        such attribute it fails to start instead of starting a weaker server."""
+        import app.main
+
+        assert not hasattr(app.main, "app")
+
+    def test_the_server_starts_the_factory(self) -> None:
+        source = (Path(__file__).resolve().parent.parent / "app" / "server.py").read_text(
+            encoding="utf-8"
+        )
+        assert '"app.main:create_app", factory=True' in source

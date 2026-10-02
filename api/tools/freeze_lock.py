@@ -56,14 +56,41 @@ HEADER = """\
 # same bytes. pyproject.toml keeps lower bounds, which is what a project needs to declare;
 # a deployment needs this.
 #
+# A line ending in `; <marker>` applies only where that marker holds — `colorama` on Windows,
+# for instance — so pip skips it on Linux and it never reaches the production image.
+# Generation refuses to write a lock that would miss a dependency on Linux, which is where
+# this ships, even when it runs on a machine where that dependency does not apply.
+#
 # NO HASHES YET. A hash per artefact is what makes a lock resist a package being replaced on
 # the index after the fact, and generating them needs network access at generation time.
 # Phase 16. Until then this pins versions and not contents, and says so rather than letting
 # the word "lock" imply more than it delivers.
-#
-# Generated on Python {python} for {platform}. Markers were evaluated against that
-# environment, so a platform-specific dependency may be missing on another one.
 """
+
+# The platform this ships on (the Dockerfile and CI are both Linux). Only the keys that real
+# markers test differ from the generating machine; the Python version is the host's own, and
+# decision 0.1 pins it to 3.13 everywhere.
+TARGET_OVERRIDES = {
+    "sys_platform": "linux",
+    "platform_system": "Linux",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+}
+
+# An OR of marker expressions under which a package is needed. None means "always".
+Condition = frozenset[str] | None
+
+
+def _widen(first: Condition, second: Condition) -> Condition:
+    if first is None or second is None:
+        return None
+    return first | second
+
+
+def _narrow(parent: Condition, marker: str) -> Condition:
+    if parent is None:
+        return frozenset({marker})
+    return frozenset(f"({p}) and ({marker})" for p in parent)
 
 
 def declared() -> tuple[list[Requirement], list[Requirement]]:
@@ -87,38 +114,53 @@ def declared() -> tuple[list[Requirement], list[Requirement]]:
     return runtime, dev
 
 
-def closure(requirements: list[Requirement]) -> dict[str, str]:
-    """Every installed distribution reachable from `requirements`, at its exact version.
+def closure(
+    requirements: list[Requirement],
+) -> tuple[dict[str, tuple[str, Condition]], set[str]]:
+    """Every installed distribution reachable from `requirements`: version and condition.
 
     Walks each distribution's declared requirements rather than `pip freeze`, so the result
     is the graph rather than the environment — which is the whole point of splitting runtime
     from development.
 
-    **Extras are followed.** `psycopg[binary,pool]` and `uvicorn[standard]` are declared with
-    extras in pyproject.toml, and the packages those extras pull in are the ones that matter
-    most: `psycopg-binary` carries libpq, without which the application cannot open a
-    database connection at all. An earlier version evaluated every marker with `extra=""`,
-    which quietly dropped exactly those — a lock that installs cleanly and then fails on the
-    first query.
+    **Extras are followed.** `psycopg[binary,pool]` is declared with extras, and
+    `psycopg-binary` carries libpq, without which the application cannot open a database
+    connection at all. An earlier version evaluated every marker with `extra=""`, which
+    quietly dropped exactly that — a lock that installs cleanly and then fails on the first
+    query.
+
+    **Platform markers are carried, not just evaluated.** `click` needs `colorama` on Windows
+    only. The first version of this tool evaluated that against the machine it ran on and
+    wrote a bare `colorama==...` line, so the lock described Windows; CI then checked it on
+    Linux, where the walk does not reach `colorama`, and failed on the difference. Now the
+    marker travels with the pin.
+
+    Returns the pins, and the dependencies that apply on the Linux target but not here —
+    which the caller refuses, because a lock silently missing them is the failure this tool
+    exists to prevent.
     """
-    # `default_environment()` is typed as returning `dict[str, str]` in some releases and
-    # a TypedDict of `object` in others; a plain comprehension makes it what `Marker`
-    # actually wants regardless of which packaging is installed.
-    environment: dict[str, str] = {
-        key: str(value) for key, value in default_environment().items()
-    }
-    found: dict[str, str] = {}
-    pending: list[tuple[str, frozenset[str]]] = [
-        (canonicalize_name(r.name), frozenset(r.extras)) for r in requirements
+    host: dict[str, str] = {key: str(value) for key, value in default_environment().items()}
+    target = {**host, **TARGET_OVERRIDES}
+
+    versions: dict[str, str] = {}
+    conditions: dict[str, Condition] = {}
+    walked: dict[tuple[str, frozenset[str]], Condition] = {}
+    target_only: set[str] = set()
+    pending: list[tuple[str, frozenset[str], Condition]] = [
+        (canonicalize_name(r.name), frozenset(r.extras), None) for r in requirements
     ]
-    seen: set[tuple[str, frozenset[str]]] = set()
 
     while pending:
-        key = pending.pop()
-        name, extras = key
-        if key in seen or name in SELF or name in TOOLING:
+        name, extras, condition = pending.pop()
+        if name in SELF or name in TOOLING:
             continue
-        seen.add(key)
+        key = (name, extras)
+        if key in walked:
+            widened = _widen(walked[key], condition)
+            if widened == walked[key]:
+                continue
+            condition = widened
+        walked[key] = condition
 
         try:
             dist = metadata.distribution(name)
@@ -129,32 +171,77 @@ def closure(requirements: list[Requirement]) -> dict[str, str]:
                 "look complete."
             ) from None
 
-        found[canonicalize_name(dist.metadata["Name"])] = dist.version
+        canonical = canonicalize_name(dist.metadata["Name"])
+        versions[canonical] = dist.version
+        conditions[canonical] = (
+            condition
+            if canonical not in conditions
+            else _widen(conditions[canonical], condition)
+        )
 
-        # A requirement is included if its marker holds for the base install or for any
-        # extra we asked for. Evaluating each context separately is what `pip` does.
-        contexts: list[dict[str, str]] = [{**environment, "extra": ""}] + [
-            {**environment, "extra": extra} for extra in sorted(extras)
+        # A requirement applies if its marker holds for the base install or for any extra we
+        # asked for. Evaluating each context separately is what pip does.
+        host_contexts = [{**host, "extra": ""}] + [
+            {**host, "extra": extra} for extra in sorted(extras)
         ]
+        target_contexts = [{**target, "extra": ""}] + [
+            {**target, "extra": extra} for extra in sorted(extras)
+        ]
+
         for raw in dist.requires or []:
             requirement = Requirement(raw)
-            if requirement.marker is not None and not any(
-                requirement.marker.evaluate(context) for context in contexts
-            ):
-                continue
-            pending.append((canonicalize_name(requirement.name), frozenset(requirement.extras)))
+            child: Condition = condition
+            if requirement.marker is not None:
+                marker = requirement.marker
+                on_host = any(marker.evaluate(c) for c in host_contexts)
+                on_target = any(marker.evaluate(c) for c in target_contexts)
+                if on_target and not on_host:
+                    target_only.add(f"{requirement.name} (needed by {canonical})")
+                if not on_host:
+                    continue
+                # An `extra == ...` clause is already settled by the walk itself and must not
+                # be written out: in a requirements file it evaluates false, and pip would
+                # skip the line — psycopg-binary among them.
+                if "extra" not in str(marker):
+                    child = _narrow(condition, str(marker))
+            pending.append(
+                (canonicalize_name(requirement.name), frozenset(requirement.extras), child)
+            )
 
-    return found
+    return {name: (versions[name], conditions[name]) for name in versions}, target_only
 
 
-def render(pins: dict[str, str], *, title: str) -> str:
-    header = HEADER.format(
-        title=title,
-        python=".".join(str(part) for part in sys.version_info[:3]),
-        platform=sys.platform,
+def _line(name: str, version: str, condition: Condition) -> str:
+    if condition is None:
+        return f"{name}=={version}"
+    return f"{name}=={version} ; " + " or ".join(sorted(condition))
+
+
+def render(pins: dict[str, tuple[str, Condition]], *, title: str) -> str:
+    body = "\n".join(
+        _line(name, version, condition) for name, (version, condition) in sorted(pins.items())
     )
-    body = "\n".join(f"{name}=={version}" for name, version in sorted(pins.items()))
-    return header + "\n" + body + "\n"
+    return HEADER.format(title=title) + "\n" + body + "\n"
+
+
+def applicable(content: str) -> set[str]:
+    """The pin lines that apply on this machine, normalised for comparison.
+
+    This is what `--check` compares, rather than whole files. A lock generated on Windows
+    carries `colorama==0.4.6 ; platform_system == "Windows"`; on Linux that line does not
+    apply and the walk never reaches colorama, so both sides agree that it is not part of
+    this platform's install — which is the correct answer, not a stale lock.
+    """
+    host = {key: str(value) for key, value in default_environment().items()}
+    lines = set()
+    for raw in content.splitlines():
+        text = raw.strip()
+        if not text or text.startswith("#"):
+            continue
+        requirement = Requirement(text)
+        if requirement.marker is None or requirement.marker.evaluate({**host, "extra": ""}):
+            lines.add(str(requirement))
+    return lines
 
 
 def main() -> int:
@@ -163,9 +250,9 @@ def main() -> int:
     args = parser.parse_args()
 
     runtime_names, dev_names = declared()
-    runtime = closure(runtime_names)
-    everything = closure(runtime_names + dev_names)
-    dev_only = {name: version for name, version in everything.items() if name not in runtime}
+    runtime, runtime_elsewhere = closure(runtime_names)
+    everything, everything_elsewhere = closure(runtime_names + dev_names)
+    dev_only = {name: pin for name, pin in everything.items() if name not in runtime}
 
     # Every direct dependency must be in the lock it belongs to. Cheap, and it is what turns
     # the parsing bug described in `declared()` from a silently short lock into a refusal.
@@ -174,6 +261,16 @@ def main() -> int:
         raise SystemExit(
             f"declared but absent from the runtime lock: {', '.join(sorted(missing))}. "
             "The dependency walk is wrong; do not commit this."
+        )
+
+    elsewhere = sorted(runtime_elsewhere | everything_elsewhere)
+    if elsewhere and not args.check:
+        listing = "\n  ".join(elsewhere)
+        raise SystemExit(
+            "refusing to write a lock that would be incomplete on Linux, the platform this "
+            "ships on. These dependencies apply on Linux but not on this machine, so they "
+            f"cannot be pinned here:\n  {listing}\nGenerate the lock on Linux, or drop the "
+            "dependency that needs them."
         )
 
     outputs = {
@@ -187,18 +284,17 @@ def main() -> int:
         ),
     }
 
-    stale = []
-    for path, content in outputs.items():
-        current = path.read_text(encoding="utf-8") if path.is_file() else None
-        if current == content:
-            continue
-        if args.check:
-            stale.append(path.name)
-        else:
-            path.write_text(content, encoding="utf-8", newline="\n")
-            print(f"wrote {path.name} ({content.count('==')} pins)")
-
     if args.check:
+        stale = []
+        for path, content in outputs.items():
+            current = path.read_text(encoding="utf-8") if path.is_file() else ""
+            expected, actual = applicable(content), applicable(current)
+            if expected != actual:
+                stale.append(path.name)
+                for line in sorted(expected - actual):
+                    print(f"  {path.name}: missing  {line}", file=sys.stderr)
+                for line in sorted(actual - expected):
+                    print(f"  {path.name}: stale    {line}", file=sys.stderr)
         if stale:
             print(
                 f"freeze_lock: {', '.join(stale)} out of date. Run "
@@ -207,6 +303,14 @@ def main() -> int:
             )
             return 1
         print("freeze_lock: ok")
+        return 0
+
+    for path, content in outputs.items():
+        existing = path.read_text(encoding="utf-8") if path.is_file() else None
+        if existing != content:
+            path.write_text(content, encoding="utf-8", newline="\n")
+            pins = sum(1 for line in content.splitlines() if line and not line.startswith("#"))
+            print(f"wrote {path.name} ({pins} pins)")
     return 0
 
 

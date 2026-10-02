@@ -61,7 +61,7 @@ class TestDosLimits:
 
     def test_h11_is_pinned_so_the_header_cap_applies(self) -> None:
         """The limit above is honoured only by uvicorn's h11 implementation, and http="auto"
-        picks httptools whenever it is installed — which uvicorn[standard] always does. Both
+        picks httptools whenever it is installed — which uvicorn[standard] always did. Both
         settings are needed; setting the limit alone left 2 MB headers passing.
         """
         from app.server import uvicorn_options
