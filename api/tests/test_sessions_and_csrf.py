@@ -1,8 +1,10 @@
 """Session token mechanics and the CSRF middleware.
 
-Everything here is pure or in-memory — no database — so it runs on any machine. The parts
-of sessions that need Postgres (creation, resolution, expiry, revocation) are in
-test_auth_flow.py.
+Nearly everything here is pure or in-memory, so it runs on any machine. The two exceptions
+get past the middleware into a handler that looks something up, and are marked `db`. The
+file once claimed to need no database at all, and those two quietly used the development
+one; CI, where that database is never migrated, is what showed it. The rest of sessions
+(creation, resolution, expiry, revocation) is in test_auth_flow.py.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from fastapi import FastAPI
 from app.main import create_app
 from app.security import csrf, sessions
 from app.security.policy import iter_api_routes
-from tests.conftest import make_client, make_settings
+from tests.conftest import auth_settings, make_client, make_settings
 
 
 class TestTokenShape:
@@ -216,23 +218,24 @@ class TestCsrfMiddleware:
         )
         assert r.status_code == 403
 
+    @pytest.mark.db
     async def test_the_matching_token_gets_past_the_middleware(
-        self, client: httpx.AsyncClient
+        self, auth_client: httpx.AsyncClient
     ) -> None:
         """Past the middleware, not past authentication: the token is derived from the
         cookie by HMAC, so a made-up cookie produces a valid-looking pair. That is by
         design — CSRF asks "did this come from our page", and authentication asks "who is
         this". Answering the first does not answer the second, and the 401 below is the
-        second question being asked afterwards."""
-        settings = make_settings()
+        second question being asked afterwards.
+
+        Asking the second question means a session lookup, so this needs the test database —
+        it used to reach the development one through `make_settings()`'s old default."""
+        settings = auth_settings()
         token = sessions.new_token()
-        client.cookies.set(sessions.cookie_name(settings), token)
-        r = await client.post(
+        auth_client.cookies.set(sessions.cookie_name(settings), token)
+        r = await auth_client.post(
             "/api/auth/logout",
-            headers={
-                "Origin": settings.app_origin,
-                sessions.CSRF_HEADER: sessions.csrf_for(settings, token),
-            },
+            headers={sessions.CSRF_HEADER: sessions.csrf_for(settings, token)},
         )
         assert r.status_code == 401
 
@@ -262,19 +265,26 @@ class TestTokenOptionalPaths:
     def test_the_list_is_exactly_login_and_signup(self) -> None:
         assert frozenset({"/api/auth/login", "/api/auth/signup"}) == csrf.TOKEN_OPTIONAL_PATHS
 
+    @pytest.mark.db
     async def test_a_stale_cookie_does_not_lock_you_out_of_the_login_form(
-        self, client: httpx.AsyncClient
+        self, auth_client: httpx.AsyncClient
     ) -> None:
-        settings = make_settings()
-        client.cookies.set(sessions.cookie_name(settings), sessions.new_token())
+        """Gets past the middleware and into the login handler, which looks the address up —
+        so this needs a database, and says so. It used to borrow `make_settings()`, whose
+        default was the *development* database: it passed locally while writing an audit row
+        into dev data on every run, and failed in CI, where that database is never migrated.
 
-        r = await client.post(
+        It used to assert only `!= 403`, which a 500 also satisfies. The real answer is a
+        401: no such account, and nothing about the stale cookie got in the way of saying so.
+        """
+        settings = auth_settings()
+        auth_client.cookies.set(sessions.cookie_name(settings), sessions.new_token())
+
+        r = await auth_client.post(
             "/api/auth/login",
             json={"email": "someone@example.test", "password": "a passphrase here"},
-            headers={"Origin": settings.app_origin},
         )
-        # 401 because there is no such account — the point is that it is not a 403.
-        assert r.status_code != 403
+        assert r.status_code == 401
 
     async def test_they_still_require_a_matching_origin(
         self, client: httpx.AsyncClient

@@ -105,6 +105,15 @@ jobs:
         working-directory: api
         run: mypy
 
+      # This job has no database service, which makes it the right place to hold tests to
+      # their markers: anything not marked `db` must pass with no database at all. Two tests
+      # broke that rule unnoticed — locally they reached the development database through a
+      # bad default and wrote into it on every run; CI is where they failed. Now that class
+      # of mistake fails here, in seconds, with the reason in the test name.
+      - name: Tests not marked db need no database
+        working-directory: api
+        run: pytest -q -m "not db"
+
       # pyproject.toml carries lower bounds, which is what a project should declare. A
       # deployment installs from the lock, so the lock has to be current — otherwise the
       # image is built from versions nobody reviewed.

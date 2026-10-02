@@ -46,7 +46,13 @@ def make_settings(**overrides: Any) -> Settings:
         "env": "local",
         "debug": False,
         "secret_key": GOOD_SECRET,
-        "database_url": "postgresql+psycopg://postgame_app:dev_app_only@localhost:5432/postgame",
+        # The *test* database, never the development one. This used to name `postgame`, so
+        # any test that reached the database without asking for it wrote into development
+        # data — 29 audit rows by the time CI caught it, where `postgame` exists but is never
+        # migrated. A test that touches a database by accident now touches the one that is
+        # meant to be disposable. Tests that need it on purpose still say so with
+        # `@pytest.mark.db` and a database fixture.
+        "database_url": app_database_url(),
         # Matching the default port matters: `deployment_warnings` flags a local
         # app_origin whose port disagrees with the one being served, because the CSRF
         # origin check then refuses every sign-in from a browser.
