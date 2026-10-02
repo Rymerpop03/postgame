@@ -1,0 +1,10 @@
+# Staging only. Served in place of robots.txt when PG_ENV=staging — see
+# api/app/routes/site.py, which does the swap so that nobody has to remember it.
+#
+# Decision 0.10 requires staging to be unindexed. This file is etiquette, not a control:
+# a crawler that ignores robots.txt faces no obstacle here. The control is the
+# `X-Robots-Tag: noindex, nofollow` header the app sends in staging, which search engines
+# honour even when they have already fetched the page.
+
+User-agent: *
+Disallow: /

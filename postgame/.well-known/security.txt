@@ -1,0 +1,27 @@
+# Postgame — how to report a security problem.
+#
+# Format: RFC 9116. Served from https://postgame.app/.well-known/security.txt
+#
+# `Expires` is mandatory and must be in the future — a security.txt whose date has
+# passed is not a valid one, and a stale contact address is worse than none, because
+# somebody with a genuine finding will believe they have reported it. The deploy
+# readiness check (api/tools/check_deploy_ready.py) refuses a deployment once this
+# date is inside 30 days, so renewing it is a step you are told about rather than one
+# you remember.
+
+Contact: mailto:security@postgame.app
+Expires: 2027-08-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://postgame.app/.well-known/security.txt
+
+# What we would like
+
+# Please give us a reasonable window to fix something before publishing it. We will
+# not pursue anyone who reports in good faith, stays within their own account, and
+# does not degrade the service for other people.
+
+# In scope: postgame.app and img.postgame.app.
+# Out of scope: denial of service, social engineering of anyone, physical attacks,
+# spam, and findings that consist only of a scanner's output.
+
+# There is no bug bounty. We would rather say that plainly than imply one.

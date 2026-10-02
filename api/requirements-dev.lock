@@ -1,0 +1,52 @@
+# GENERATED — do not edit by hand. Rewrite with: python tools/freeze_lock.py
+#
+# Development and CI only, on top of requirements.lock. Never installed in the production image: test tooling is surface to patch and nothing else.
+#
+# Exact versions for the whole transitive closure, so two builds of one commit install the
+# same bytes. pyproject.toml keeps lower bounds, which is what a project needs to declare;
+# a deployment needs this.
+#
+# NO HASHES YET. A hash per artefact is what makes a lock resist a package being replaced on
+# the index after the fact, and generating them needs network access at generation time.
+# Phase 16. Until then this pins versions and not contents, and says so rather than letting
+# the word "lock" imply more than it delivers.
+#
+# Generated on Python 3.13.14 for win32. Markers were evaluated against that
+# environment, so a platform-specific dependency may be missing on another one.
+
+ast-serialize==0.6.0
+boolean-py==5.0
+cachecontrol==0.14.4
+charset-normalizer==3.4.9
+cyclonedx-python-lib==11.11.0
+defusedxml==0.7.1
+filelock==3.32.2
+hypothesis==6.165.1
+iniconfig==2.3.0
+librt==0.13.0
+license-expression==30.4.4
+markdown-it-py==4.2.0
+mdurl==0.1.2
+msgpack==1.2.1
+mypy==2.3.0
+mypy-extensions==1.1.0
+packageurl-python==0.17.6
+packaging==26.3
+pathspec==1.1.1
+pip-api==0.0.34
+pip-audit==2.10.1
+pip-requirements-parser==32.0.1
+platformdirs==4.11.0
+pluggy==1.6.0
+py-serializable==2.1.0
+pygments==2.20.0
+pyparsing==3.3.2
+pytest==9.1.1
+pytest-asyncio==1.4.0
+requests==2.34.2
+rich==15.0.0
+ruff==0.16.1
+sortedcontainers==2.4.0
+tomli==2.4.1
+tomli-w==1.2.0
+urllib3==2.7.0

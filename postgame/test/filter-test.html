@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postgame — content filter tests</title>
+<style>
+  :root { color-scheme: dark light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 22px 80px;
+    font: 15px/1.6 "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0b0e16; color: #eaeef7;
+  }
+  main { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lede { color: #98a3b9; margin: 0 0 22px; max-width: 70ch; font-size: 14px; }
+  .lede code { background: #1b2130; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+
+  .summary {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px;
+    padding: 18px 20px; margin-bottom: 26px;
+    border: 1px solid #262f42; border-radius: 12px; background: #10141e;
+  }
+  .verdict { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .verdict.ok { color: #2ee0b4; }
+  .verdict.bad { color: #ff6b6b; }
+  .tally { color: #98a3b9; font-size: 13.5px; }
+  .tally b { color: #eaeef7; font-variant-numeric: tabular-nums; }
+  .stamp { margin-left: auto; color: #79839b; font-size: 12px; }
+
+  section { margin-bottom: 26px; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: #98a3b9; margin: 0 0 4px;
+  }
+  .why { color: #79839b; font-size: 12.5px; margin: 0 0 12px; max-width: 76ch; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #79839b; font-weight: 700;
+    padding: 0 10px 7px; border-bottom: 1px solid #262f42;
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid #1c2331; vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .st { width: 62px; font-weight: 700; font-size: 11.5px; letter-spacing: 0.06em; }
+  .st.pass { color: #2ee0b4; }
+  .st.fail { color: #ff6b6b; }
+  tr.fail td { background: rgba(255, 107, 107, 0.09); }
+  .given { color: #cfd6e6; }
+  .given code {
+    background: #1b2130; padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px;
+  }
+  .note { color: #79839b; font-size: 12.5px; }
+  .redacted {
+    color: #79839b; font-style: italic;
+  }
+  footer { margin-top: 34px; color: #79839b; font-size: 12.5px; max-width: 76ch; }
+  @media (prefers-color-scheme: light) {
+    body { background: #f4f6fa; color: #101623; }
+    .summary { background: #fff; border-color: #dae0ec; }
+    .lede, .tally, h2 { color: #4f596e; }
+    .lede code, .given code { background: #eef1f7; }
+    .why, .stamp, .note, .redacted { color: #5f6a80; }
+    td { border-bottom-color: #e5eaf3; }
+    th { border-bottom-color: #dae0ec; color: #5f6a80; }
+    .given { color: #2b3346; }
+    .verdict.ok { color: #0a7a5d; }
+    .verdict.bad { color: #cf3636; }
+    .st.pass { color: #0a7a5d; }
+    .st.fail { color: #cf3636; }
+    tr.fail td { background: rgba(207, 54, 54, 0.08); }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Content filter — test suite</h1>
+  <p class="lede">
+    Runs against the real <code>js/moderation.js</code>. Every case is checked
+    through the same public functions the site uses:
+    <code>check()</code> for prose, <code>checkName()</code> for handles and
+    display names, and <code>mask()</code> for what actually reaches the page.
+    Reload to re-run.
+  </p>
+
+  <div class="summary" id="summary"></div>
+  <div id="results"></div>
+
+  <footer>
+    Inputs for the blocked cases are stored base64-encoded and decoded at run
+    time, for the same reason the filter's own word list is hashed: a test file
+    should not be a readable list of slurs. Each case is described by what it
+    tests rather than by its content, and the failing-case output redacts the
+    input too — a failure tells you which rule broke, which is the part you need.
+  </footer>
+</main>
+
+<script src="../js/moderation.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var results = [];
+
+  function suite(title, why, run) {
+    var group = { title: title, why: why, rows: [] };
+    run(function (status, given, expected, actual, note) {
+      group.rows.push({
+        pass: status, given: given, expected: expected, actual: actual, note: note || ''
+      });
+    });
+    results.push(group);
+  }
+
+  function dec(b64) {
+    /* atob gives bytes; this turns them back into the original UTF-8 so the
+       Cyrillic and full-width cases survive the round trip. */
+    var bin = window.atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  /* ---- fixtures --------------------------------------------------------
+     [kind, what it tests, base64 of the input]. Never rendered as text. */
+  var HOSTILE = [
+      ['BLOCK', 'racial slur, plain', 'dGhvc2UgY29vbnMgcnVpbmVkIHRoZSBsb2JieQ=='],
+      ['BLOCK', 'ethnic slur, plain', 'YSBidW5jaCBvZiBzcGljcw=='],
+      ['BLOCK', 'racial slur, plain', 'Z28gaG9tZSBwYWtp'],
+      ['BLOCK', 'antisemitic slur', 'dHlwaWNhbCBraWtlIGJlaGF2aW91cg=='],
+      ['BLOCK', 'anti-Asian slur', 'c3R1cGlkIGdvb2s='],
+      ['BLOCK', 'homophobic slur', 'eW91IGFic29sdXRlIGZhZ2dvdA=='],
+      ['BLOCK', 'transphobic slur', 'd2hhdCBhIHRyYW5ueQ=='],
+      ['BLOCK', 'ableist slur', 'd2hhdCBhIHJldGFyZA=='],
+      ['BLOCK', 'hate phrase, two words', 'd2hpdGUgcG93ZXI='],
+      ['BLOCK', 'hate phrase, three words', 'Z2FzIHRoZSBqZXdz'],
+      ['BLOCK', 'hate phrase, three words', 'a2lsbCBhbGwgbXVzbGltcw=='],
+      ['BLOCK', 'slur inside a real sentence', 'dGhlIGxldmVsIGRlc2lnbiBpcyBmb3IgcmV0YXJkcyBob25lc3RseQ=='],
+      ['EVADE', 'leetspeak digits', 'cjN0NHJk'],
+      ['EVADE', 'leetspeak, another term', 'ZjRnZzB0'],
+      ['EVADE', 'leetspeak inside a phrase', 'd2gxdGUgcDB3ZXI='],
+      ['EVADE', 'hyphen separators', 'ci1lLXQtYS1yLWQ='],
+      ['EVADE', 'full-stop separators', 'Zi5hLmcuZy5vLnQ='],
+      ['EVADE', 'underscore separators', 'bl9pX2dfZ19lX3I='],
+      ['EVADE', 'padded repeated letter', 'cmVlZWV0YXJk'],
+      ['EVADE', 'padded, different letter', 'bmlpaWlpZ2dlcg=='],
+      ['EVADE', 'all caps', 'UkVUQVJE'],
+      ['EVADE', 'mixed case', 'UmVUYVJk'],
+      ['EVADE', 'Cyrillic look-alike a', 'cmV00LByZA=='],
+      ['EVADE', 'Cyrillic look-alike e and a', 'ctC1dNCwcmQ='],
+      ['EVADE', 'full-width characters', '772S772F772U772B772S772E'],
+      ['EVADE', 'accented letters', 'csOpdMOgcmQ='],
+      ['EVADE', 'extra spaces in a phrase', 'd2hpdGUgICBwb3dlcg=='],
+      ['NAME', 'slur at the start', 'cmV0YXJkbG9yZA=='],
+      ['NAME', 'slur buried in the middle', 'eHhyZXRhcmR4eA=='],
+      ['NAME', 'slur at the end', 'YmlnZmFnZ290'],
+      ['NAME', 'leetspeak in a handle', 'bjFnZ2VyaGF0ZXI='],
+      ['NAME', 'hate phrase as a handle', 'a2lsbGFsbGpld3M5OQ=='],
+      ['NAME', 'hate phrase with digits', 'd2hpdGVwb3dlcjg4'],
+      ['NAME', 'short slur, whole handle', 'ZmFn'],
+      ['NAME', 'short slur, whole handle', 'Y29vbg==']
+  ];
+
+  function hostile(kind) {
+    return HOSTILE.filter(function (h) { return h[0] === kind; });
+  }
+
+  /* ---- 1. ordinary writing --------------------------------------------- */
+
+  var ORDINARY = [
+    'This boss is fucking unfair and I love it.',
+    'Absolute shit port, do not buy.',
+    'Damn, that ending destroyed me.',
+    'Piss-poor optimisation on PC.',
+    'What an arse of a jumping puzzle.',
+    'I killed the final boss on my first try.',
+    'Kill all the enemies in the room to open the gate.',
+    'The gas cloud in the sewer does damage over time.',
+    'White power-ups restore your shield.',
+    'All of the DLC is worth it.',
+    'The co-op is superb and the crafting is deep.',
+    'Ninety hours in and I have not finished the map.'
+  ];
+
+  suite('Ordinary writing is left alone',
+    'Swearing is explicitly allowed. The filter is about who language is aimed ' +
+    'at, not how rude it is — if these tripped it, the site would be unusable.',
+    function (t) {
+      ORDINARY.forEach(function (text) {
+        var clean = PG.moderate.check(text).clean;
+        t(clean, text, 'allowed', clean ? 'allowed' : 'BLOCKED');
+      });
+    });
+
+  /* ---- 2. near-miss words ---------------------------------------------- */
+
+  var NEAR_MISS = [
+    ['A raccoon steals your items in this one.', 'contains a slur as a substring'],
+    ['A cocoon hangs in the cave.', 'contains a slur as a substring'],
+    ['Spicy takes from a spicier reviewer.', 'a careless -y suffix rule breaks this'],
+    ['Mr Spicer runs the shop in chapter two.', 'a careless -er suffix rule breaks this'],
+    ['The pros and cons of the con artist build.', 'collapsing repeats too far breaks this'],
+    ['Set in Japan, 1600s, gorgeous art direction.', 'contains a slur as a substring'],
+    ['The assassin build is overpowered.', 'contains a slur as a substring'],
+    ['A masterclass in level design.', 'contains a slur as a substring'],
+    ['My analysis of the frame data says otherwise.', 'contains a slur as a substring'],
+    ['Scunthorpe United are in this football game.', 'the classic filter failure'],
+    ['Titanfall 2 has the best campaign of its decade.', 'contains a slur as a substring'],
+    ['Bassoon, balloon, cartoon, platoon, harpoon, tycoon.', 'six words ending in the same slur'],
+    ['Shiitake mushrooms are a crafting ingredient.', 'contains a slur as a substring'],
+    ['Crippling difficulty spike in chapter four.', 'a word left off the list on purpose'],
+    ['The Great Fairy Fountain theme still gets me.', 'a word left off the list on purpose'],
+    ['Queer representation here is genuinely thoughtful.', 'reclaimed, deliberately not filtered'],
+    ['The Hajj is depicted respectfully in the museum level.', 'an honorific, deliberately not filtered'],
+    ['He dug it up with a spade.', 'a word left off the list on purpose']
+  ];
+
+  suite('Near-misses stay readable',
+    'Words that contain a slur, or that a sloppy stemmer would turn into one. ' +
+    'This is where filters usually embarrass themselves.',
+    function (t) {
+      NEAR_MISS.forEach(function (pair) {
+        var clean = PG.moderate.check(pair[0]).clean;
+        t(clean, pair[0], 'allowed', clean ? 'allowed' : 'BLOCKED', pair[1]);
+      });
+    });
+
+  /* ---- 3. slurs are caught --------------------------------------------- */
+
+  suite('Slurs and hate speech are caught',
+    'One case per category the filter covers, run through check() exactly as a ' +
+    'review or comment would be.',
+    function (t) {
+      hostile('BLOCK').forEach(function (h) {
+        var clean = PG.moderate.check(dec(h[2])).clean;
+        t(!clean, null, 'blocked', clean ? 'ALLOWED' : 'blocked', h[1]);
+      });
+    });
+
+  /* ---- 4. evasion ------------------------------------------------------ */
+
+  suite('Evasion attempts are caught',
+    'Everything here is the same handful of terms, disguised. They all fold to ' +
+    'the same key during normalisation, which is why the word list holds one ' +
+    'spelling per term instead of a combinatorial pile.',
+    function (t) {
+      hostile('EVADE').forEach(function (h) {
+        var clean = PG.moderate.check(dec(h[2])).clean;
+        t(!clean, null, 'blocked', clean ? 'ALLOWED' : 'blocked', h[1]);
+      });
+    });
+
+  /* ---- 5. handles ------------------------------------------------------ */
+
+  var GOOD_NAMES = ['raccoon_fan', 'Cocoon', 'spicy_takes', 'Spicer', 'bassoonist',
+    'tycoon99', 'Scunthorpe_Utd', 'assassin_main', 'classicgamer', 'grasshopper',
+    'Titanfall2Fan', 'shiitake', 'Nipponophile', 'japanfan', 'queergamer',
+    'cartoonist', 'platoonleader', 'analysisparalysis'];
+
+  suite('Handles: innocent ones survive the substring sweep',
+    'Names are swept for slurs anywhere inside them, not just as whole words — ' +
+    'so the five-character floor is the only thing keeping these safe.',
+    function (t) {
+      GOOD_NAMES.forEach(function (n) {
+        var clean = PG.moderate.checkName(n).clean;
+        t(clean, n, 'allowed', clean ? 'allowed' : 'BLOCKED');
+      });
+    });
+
+  suite('Handles: adversarial ones are caught',
+    'A username has no spaces to split on, so whole-word matching lets a slur ' +
+    'with anything glued to it straight through. These need the substring sweep.',
+    function (t) {
+      hostile('NAME').forEach(function (h) {
+        var clean = PG.moderate.checkName(dec(h[2])).clean;
+        t(!clean, null, 'blocked', clean ? 'ALLOWED' : 'blocked', h[1]);
+      });
+    });
+
+  /* ---- 6. masking ------------------------------------------------------ */
+
+  suite('Masking replaces only the offending words',
+    'This is the layer that makes the guarantee hold for text already in ' +
+    'storage. The sentence around a match has to survive intact.',
+    function (t) {
+      var input = dec('dGhlIGxldmVsIGRlc2lnbiBpcyBmb3IgcmV0YXJkcyBob25lc3RseQ==');
+      var out = PG.moderate.mask(input);
+
+      t(out.indexOf('█') > -1, null, 'contains block characters',
+        out.indexOf('█') > -1 ? 'yes' : 'no', 'something was censored');
+
+      t(out.indexOf('the level design is for ') === 0, null,
+        'text before the match is intact',
+        out.indexOf('the level design is for ') === 0 ? 'yes' : 'no',
+        'rendered: ' + out);
+
+      t(/ honestly$/.test(out), null, 'text after the match is intact',
+        / honestly$/.test(out) ? 'yes' : 'no', 'rendered: ' + out);
+
+      t(out.length === input.length, null,
+        'length preserved (' + input.length + ')', String(out.length),
+        'the shape of the sentence survives');
+
+      var ordinary = 'This game is fucking brilliant, no notes.';
+      t(PG.moderate.mask(ordinary) === ordinary, ordinary,
+        'returned unchanged',
+        PG.moderate.mask(ordinary) === ordinary ? 'unchanged' : 'ALTERED');
+
+      var phrase = PG.moderate.mask(dec('Z2FzIHRoZSBqZXdz'));
+      t(/^█+$/.test(phrase), null, 'whole phrase censored, not just one word',
+        /^█+$/.test(phrase) ? 'yes' : 'no', 'rendered: ' + phrase);
+    });
+
+  /* ---- 7. exemptions --------------------------------------------------- */
+
+  suite('Idiom exemptions',
+    'Where a listed word has a genuine innocent use, the phrase is exempted ' +
+    'rather than the word dropped from the list.',
+    function (t) {
+      [
+        'There is a chink in the armour of every boss.',
+        'A chink in the armor, as the Americans spell it.',
+        'Every build has a chink in its armour somewhere.'
+      ].forEach(function (text) {
+        var clean = PG.moderate.check(text).clean;
+        t(clean, text, 'allowed', clean ? 'allowed' : 'BLOCKED',
+          'the word alone is still blocked');
+      });
+
+      /* The exemption must not be a hole: the word on its own still goes. */
+      var bare = PG.moderate.check(dec('dGhhdCBpcyBzdWNoIGEgY2hpbms=')).clean;
+      t(!bare, null, 'blocked', bare ? 'ALLOWED' : 'blocked',
+        'same word outside the idiom');
+    });
+
+  /* ---- 8. plumbing ----------------------------------------------------- */
+
+  suite('Plumbing',
+    'The pieces the rest of the suite leans on.',
+    function (t) {
+      t(typeof PG.moderate.check === 'function', 'check()', 'exposed',
+        typeof PG.moderate.check);
+      t(typeof PG.moderate.checkName === 'function', 'checkName()', 'exposed',
+        typeof PG.moderate.checkName);
+      t(typeof PG.moderate.mask === 'function', 'mask()', 'exposed',
+        typeof PG.moderate.mask);
+      t(PG.moderate.size > 0, 'word list', 'non-empty',
+        PG.moderate.size + ' patterns');
+
+      var a = PG.moderate.hash('example');
+      var b = PG.moderate.hash('example');
+      t(a === b && a.length > 8, 'hash() is stable', 'same key twice',
+        a === b ? 'stable, ' + a.length + ' chars' : 'UNSTABLE');
+
+      t(PG.moderate.normalise('R3t@rd') === 'retard',
+        "normalise('R3t@rd')", 'retard', PG.moderate.normalise('R3t@rd'));
+
+      ['', null, undefined].forEach(function (v) {
+        var ok = PG.moderate.check(v).clean && PG.moderate.mask(v) === '';
+        t(ok, String(v) === '' ? '(empty string)' : String(v),
+          'handled without throwing', ok ? 'handled' : 'THREW OR FLAGGED');
+      });
+
+      var long = new Array(400).join('a wholly ordinary sentence about games. ');
+      var t0 = performance.now();
+      PG.moderate.check(long);
+      var ms = performance.now() - t0;
+      t(ms < 250, 'a ' + long.length + '-character review',
+        'scanned in under 250ms', ms.toFixed(1) + 'ms');
+    });
+
+  /* ---- render ---------------------------------------------------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  var passed = 0, failed = 0;
+  var html = '';
+
+  results.forEach(function (group) {
+    html += '<section><h2>' + esc(group.title) + '</h2>' +
+      '<p class="why">' + esc(group.why) + '</p>' +
+      '<table><thead><tr><th>Status</th><th>Input</th><th>Expected</th>' +
+      '<th>Actual</th><th>Note</th></tr></thead><tbody>';
+    group.rows.forEach(function (r) {
+      if (r.pass) passed++; else failed++;
+      var given = r.given === null ?
+        '<span class="redacted">redacted</span>' : '<code>' + esc(r.given) + '</code>';
+      html += '<tr class="' + (r.pass ? 'pass' : 'fail') + '">' +
+        '<td class="st ' + (r.pass ? 'pass">PASS' : 'fail">FAIL') + '</td>' +
+        '<td class="given">' + given + '</td>' +
+        '<td class="note">' + esc(r.expected) + '</td>' +
+        '<td class="note">' + esc(r.actual) + '</td>' +
+        '<td class="note">' + esc(r.note) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></section>';
+  });
+
+  document.getElementById('results').innerHTML = html;
+  document.getElementById('summary').innerHTML =
+    '<span class="verdict ' + (failed ? 'bad' : 'ok') + '">' +
+      (failed ? failed + ' failing' : 'All passing') + '</span>' +
+    '<span class="tally"><b>' + passed + '</b> passed &middot; <b>' + failed +
+      '</b> failed &middot; <b>' + (passed + failed) + '</b> checks across <b>' +
+      results.length + '</b> groups</span>' +
+    '<span class="stamp">' + PG.moderate.size + ' patterns &middot; run ' +
+      new Date().toLocaleTimeString() + '</span>';
+
+  document.title = (failed ? failed + ' FAILING — ' : 'All passing — ') +
+    'content filter tests';
+})();
+</script>
+</body>
+</html>

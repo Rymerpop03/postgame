@@ -1,0 +1,39 @@
+# What must never reach the image. The static server's extension allowlist is the second
+# layer — DEPLOYMENT.md lists the same files under "Files to exclude from the deployed
+# bundle" — and neither is relied on alone.
+
+# Secrets first.
+**/.env
+**/.env.*
+
+# Environments and caches: large, machine-specific, and a stale .venv shadowing the image's
+# own interpreter is a genuinely confusing failure.
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+
+# Development tooling that has no business on a web root.
+postgame/serve.py
+postgame/scratchpad/
+postgame/test/
+
+# Planning and review documents. They are in the repository on purpose and on a public
+# server by accident.
+postgame/BACKEND-PLAN.md
+postgame/DEPENDENCIES.md
+postgame/DEPLOYMENT.md
+postgame/ASVS-V2-CHECKLIST.md
+**/README.md
+
+# Tests and CI. Not needed at runtime, and test fixtures are surface.
+api/tests/
+.github/
+.claude/
+
+# Version control.
+.git/
+.gitignore

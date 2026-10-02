@@ -1,0 +1,32 @@
+# Condition 5 of BACKEND-PLAN.md §0.3.1: api/app/security/ is a protected path so that
+# changes there get a deliberate second read rather than a drive-by edit. Working solo,
+# the value is the forced pause, not the second person.
+#
+# ACTION REQUIRED: replace @OWNER with the real GitHub username or team. A CODEOWNERS file
+# with a non-existent owner silently protects nothing — GitHub assigns nobody, the review
+# rule never fires, and the repository looks protected in exactly the way it is not.
+#
+# This is no longer a comment asking someone to remember. `api/tools/check_codeowners.py`
+# runs in CI and FAILS while @OWNER is still here. It is expected to be red until this repo
+# has a real owner on GitHub, and that is the point: a control that has not been switched on
+# should say so, not sit quietly looking finished.
+#
+# Also required by BACKEND-PLAN.md §0.3.1 condition 5, which is why the security paths below
+# are listed individually rather than relying on the catch-all.
+
+*                           @OWNER
+
+# The auth and security surface. Phases 5 and 6 carry more risk than the other fifteen
+# combined (§0.3), and these are the files where a forgotten line is invisible from the
+# outside.
+/api/app/security/          @OWNER
+/api/app/config.py          @OWNER
+/api/app/logging.py         @OWNER
+
+# The gates themselves. Weakening a check is how a check stops working.
+/api/tools/                 @OWNER
+/.github/workflows/         @OWNER
+
+# The decision record and the dependency allowlist.
+/postgame/BACKEND-PLAN.md   @OWNER
+/postgame/DEPENDENCIES.md   @OWNER

@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "postgame",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["serve.py", "8130"],
+      "cwd": "postgame",
+      "port": 8130
+    },
+    {
+      "name": "postgame-api",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "app.server"],
+      "cwd": "api",
+      "port": 8132
+    },
+    {
+      "name": "postgame-csp-check",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["tools/serve_with_headers.py", "8131"],
+      "cwd": "api",
+      "port": 8131
+    }
+  ]
+}

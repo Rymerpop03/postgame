@@ -1,0 +1,41 @@
+# Secrets. The single most important line in this file.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Local database dumps and exports — these contain real user data once Phase 14 lands.
+*.sql
+*.dump
+exports/
+# ...except the two bootstrap scripts, which are source code. Without this line `*.sql`
+# silently drops them from every commit, and the first CI run fails at "Bootstrap roles and
+# databases" because `psql -f ops/bootstrap_01_cluster.sql` finds nothing — as does anyone
+# cloning the repository to set up a database. Found while setting up git, before the first
+# commit rather than after it.
+!api/ops/*.sql
+
+# Uploaded and cached media. Re-derivable, and covered by the Phase 11 pipeline.
+uploads/
+media/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

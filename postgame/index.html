@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postgame — log the games you play</title>
+<meta name="description" content="Postgame is a diary for video games. Log what you have played, rate it out of five stars, write a review, and see what everyone else thought.">
+<meta name="theme-color" content="#0b0e16">
+<meta name="color-scheme" content="dark light">
+
+<!-- Resolve the theme before the first paint. The stylesheet and the rest of
+     the app load at the end of <body>, so without this a reader on the light
+     theme gets a dark flash on every single page load. Mirrors resolve() in
+     js/theme.js — keep the two in step. -->
+<script>
+(function () {
+  var mode = 'system';
+  try { mode = localStorage.getItem('postgame.theme') || 'system'; } catch (e) {}
+  var light = mode === 'light' || (mode !== 'dark' && window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+})();
+</script>
+<meta property="og:title" content="Postgame — log the games you play">
+<meta property="og:description" content="Rate, review and remember every game you play.">
+<meta property="og:type" content="website">
+<!-- Versioned like the rest: browsers hold on to a favicon hard, and the mark
+     changed. -->
+<link rel="icon" href="assets/favicon.svg?v=33" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css?v=33">
+</head>
+<body>
+
+<!-- Icon sprite. Kept in the document (not display:none) so the logo gradient
+     resolves in every browser. -->
+<svg aria-hidden="true" focusable="false"
+     style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <linearGradient id="logoGrad" x1="4" y1="3" x2="43" y2="45" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8F7CFF"/>
+      <stop offset="1" stop-color="#2EE0B4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Postgame mark: a d-pad inside a speech bubble — talking about games
+       after the credits roll. The pads are four separate squares rather than a
+       solid cross on purpose: a cross reads as a medical symbol, and the
+       centred triangle this replaced read as YouTube. Pads run N, E, S, W. -->
+  <symbol id="icon-logo" viewBox="0 0 48 48">
+    <rect x="2" y="2" width="44" height="44" rx="13" fill="url(#logoGrad)"/>
+    <g fill="#0A0D14" opacity=".9">
+      <rect x="10.5" y="10.5" width="27" height="21" rx="6"/>
+      <path d="M16.5 30.5 L16 38.6 L24 30.5 Z"/>
+    </g>
+    <g fill="#F4F6FF">
+      <rect x="21.7" y="13.5" width="4.6" height="4.6" rx="1.3"/>
+      <rect x="26.9" y="18.7" width="4.6" height="4.6" rx="1.3"/>
+      <rect x="21.7" y="23.9" width="4.6" height="4.6" rx="1.3"/>
+      <rect x="16.5" y="18.7" width="4.6" height="4.6" rx="1.3"/>
+    </g>
+  </symbol>
+
+  <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round">
+    <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/>
+  </symbol>
+
+  <symbol id="icon-heart" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 21s-8.5-5.2-8.5-11A5 5 0 0 1 12 7a5 5 0 0 1 8.5 3c0 5.8-8.5 11-8.5 11z"/>
+  </symbol>
+
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round">
+    <path d="M12 5v14M5 12h14"/>
+  </symbol>
+
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>
+  </symbol>
+
+  <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.1" stroke-linecap="round">
+    <circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>
+  </symbol>
+</svg>
+
+<!-- The sticky header puts eight or so controls ahead of the content on every
+     route. The hash belongs to the router, so this moves focus itself rather
+     than navigating to #view and tripping a route lookup — see boot(). -->
+<a class="skip" href="#view">Skip to content</a>
+
+<header class="top">
+  <div class="wrap top__inner">
+    <a class="brand" href="#/" aria-label="Postgame home">
+      <svg class="brand__mark"><use href="#icon-logo"></use></svg>
+      <span class="brand__word">Post<span>game</span></span>
+    </a>
+
+    <nav class="nav" aria-label="Main">
+      <a href="#/" data-route="home">Home</a>
+      <a href="#/games" data-route="games">Games</a>
+      <a href="#/activity" data-route="activity">Activity</a>
+      <a href="#/members" data-route="members">Members</a>
+    </nav>
+
+    <div class="top__spacer"></div>
+
+    <div class="search" id="search">
+      <svg class="search__icon"><use href="#icon-search"></use></svg>
+      <input class="search__input" id="search-input" type="search" autocomplete="off"
+             placeholder="Search games   /" aria-label="Search games">
+      <button class="search__clear" id="search-clear" type="button" aria-label="Clear search">✕</button>
+      <div class="search__results" id="search-results" role="listbox" aria-label="Search results"></div>
+    </div>
+
+    <div class="top__account" id="account"></div>
+  </div>
+</header>
+
+<main>
+  <!-- tabindex="-1" so the skip link has something to move focus to. -->
+  <div class="wrap" id="view" tabindex="-1"></div>
+  <noscript>
+    <div class="wrap">
+      <div class="empty">
+        <div class="empty__t">Postgame needs JavaScript</div>
+        <div>The catalogue, ratings and your diary are all rendered in the browser.</div>
+      </div>
+    </div>
+  </noscript>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <span class="foot__brand">
+      <svg><use href="#icon-logo"></use></svg> Postgame
+    </span>
+    <nav aria-label="Footer">
+      <a href="#/games">Games</a>
+      <a href="#/activity">Activity</a>
+      <a href="#/members">Members</a>
+      <a href="#/signin">Sign in</a>
+    </nav>
+    <span style="margin-left:auto">A demo project — 2,000 games, fake accounts, everything stored in your browser.</span>
+  </div>
+</footer>
+
+<div class="modal" id="modal"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script defer src="js/games-01.js?v=33"></script>
+<script defer src="js/games-02.js?v=33"></script>
+<script defer src="js/games-03.js?v=33"></script>
+<script defer src="js/games-04.js?v=33"></script>
+<script defer src="js/games-05.js?v=33"></script>
+<script defer src="js/games-06.js?v=33"></script>
+<script defer src="js/games-07.js?v=33"></script>
+<script defer src="js/games-08.js?v=33"></script>
+<script defer src="js/games-09.js?v=33"></script>
+<script defer src="js/games-10.js?v=33"></script>
+<script defer src="js/games-11.js?v=33"></script>
+<script defer src="js/games-12.js?v=33"></script>
+<script defer src="js/games-13.js?v=33"></script>
+<script defer src="js/games-14.js?v=33"></script>
+<script defer src="js/games-15.js?v=33"></script>
+<script defer src="js/games-16.js?v=33"></script>
+<script defer src="js/games-17.js?v=33"></script>
+<script defer src="js/games-18.js?v=33"></script>
+<script defer src="js/games-19.js?v=33"></script>
+<script defer src="js/games-20.js?v=33"></script>
+<script defer src="js/games-21.js?v=33"></script>
+<script defer src="js/theme.js?v=33"></script>
+<script defer src="js/sound.js?v=33"></script>
+<script defer src="js/moderation.js?v=33"></script>
+<script defer src="js/data.js?v=33"></script>
+<script defer src="js/art.js?v=33"></script>
+<script defer src="js/api.js?v=33"></script>
+<script defer src="js/catalogue.js?v=33"></script>
+<script defer src="js/store.js?v=33"></script>
+<script defer src="js/ui.js?v=33"></script>
+<script defer src="js/app.js?v=33"></script>
+</body>
+</html>

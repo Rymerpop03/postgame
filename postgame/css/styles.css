@@ -1,0 +1,2563 @@
+/* ==========================================================================
+   Postgame — log the games you play
+   Two themes, tuned for long lists of cover art. Everything below the token
+   blocks is theme-agnostic: it reads variables, never literal colours.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  /* The brand gradient stays vivid in both themes — it is the logo. Where the
+     same purple has to carry text, --accent is used instead, because #8f7cff on
+     white is nowhere near readable. */
+  --brand-1: #8f7cff;
+  --brand-2: #2ee0b4;
+  --grad: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 100%);
+  /* Text on the brand gradient. Fixed in both themes, because the gradient is. */
+  --on-brand: #0a0c14;
+
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: "Space Grotesk", "Inter", "Segoe UI Variable Display", "Segoe UI",
+    system-ui, sans-serif;
+
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+
+  --head-h: 64px;
+  --wrap: 1220px;
+}
+
+/* --- dark (the default) --------------------------------------------------- */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-950: #070910;
+  --ink-900: #0b0e16;
+  --ink-850: #10141e;
+  --ink-800: #151a26;
+  --ink-750: #1b2130;
+  --ink-700: #222a3b;
+  --line: #262f42;
+  --line-soft: #1c2331;
+
+  --text: #eaeef7;
+  --text-dim: #98a3b9;
+  /* Was #66708a, which measured 3.7-3.9:1 on the panels it actually sits on —
+     under AA, and the reason three components had already been moved off this
+     token by hand. Lifted to clear 4.5:1 everywhere it is used. */
+  --text-faint: #79839b;
+  /* Long-form reading copy: blurbs and review bodies, a touch below --text. */
+  --prose: #cfd6e6;
+
+  --accent: #8f7cff;
+  --accent-bright: #a493ff;
+  --accent-deep: #6a58d8;
+  --accent-2: #2ee0b4;
+  --star: #ffc247;
+  --heart: #ff5d7a;
+  --danger: #ff6b6b;
+  --danger-soft: #ffb3b3;
+  --abandon: #ff9d9d;
+  /* Text that sits on a filled --accent block. */
+  --on-accent: #0a0c14;
+
+  /* Surface tints. In dark these lift a panel off the background; in light
+     they have to sink into it, which is why they are tokens and not literals. */
+  --lift-1: rgba(255, 255, 255, 0.03);
+  --lift-2: rgba(255, 255, 255, 0.055);
+  --lift-3: rgba(255, 255, 255, 0.09);
+  --lift-ring: rgba(255, 255, 255, 0.14);
+  --star-off: rgba(255, 255, 255, 0.16);
+
+  /* Translucent surfaces, layered over the page background. */
+  --surface: rgba(21, 26, 38, 0.55);
+  --surface-2: rgba(16, 20, 30, 0.6);
+  --surface-card: rgba(21, 26, 38, 0.72);
+  --surface-top: rgba(9, 12, 19, 0.82);
+  --surface-foot: rgba(7, 9, 16, 0.6);
+  --surface-hero: rgba(16, 20, 30, 0.4);
+  --scrim: rgba(4, 6, 11, 0.72);
+  --scroll-thumb: #2f3a51;
+
+  --aurora-1: rgba(143, 124, 255, 0.16);
+  --aurora-2: rgba(46, 224, 180, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 28px 70px -20px rgba(0, 0, 0, 0.85);
+}
+
+/* --- light ---------------------------------------------------------------- */
+
+/* The surface scale keeps its dark-theme names, so --ink-900 is the lightest
+   value here and --ink-700 the darkest. Reading oddly is a much smaller price
+   than renaming eleven variables across 1,700 lines of rules. Only the
+   *resolved* theme lands on the element — theme.js turns "system" into one of
+   these — so there is no second copy of this block behind a media query. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ink-950: #dfe4ee;
+  --ink-900: #f4f6fa;
+  --ink-850: #ffffff;
+  --ink-800: #ffffff;
+  --ink-750: #eef1f7;
+  --ink-700: #c5cddf;
+  --line: #dae0ec;
+  --line-soft: #e5eaf3;
+
+  --text: #101623;
+  --text-dim: #4f596e;
+  /* 5.0:1 on --ink-900. The obvious lighter grey measured 3.7, and --text-faint
+     carries the 10.5px uppercase labels, which need the contrast most. */
+  --text-faint: #5f6a80;
+  --prose: #2b3346;
+
+  --accent: #6244d9;
+  --accent-bright: #5334cc;
+  --accent-deep: #4a34b8;
+  /* Deep enough to stay readable as 11px uppercase on the hero's tinted
+     gradient, which is the lightest surface it has to sit on. */
+  --accent-2: #0a7a5d;
+  --star: #e09200;
+  --heart: #dd3b58;
+  --danger: #cf3636;
+  --danger-soft: #a52121;
+  --abandon: #bb3b32;
+  --on-accent: #ffffff;
+
+  --lift-1: rgba(16, 22, 40, 0.032);
+  --lift-2: rgba(16, 22, 40, 0.062);
+  --lift-3: rgba(16, 22, 40, 0.105);
+  --lift-ring: rgba(255, 255, 255, 0.5);
+  --star-off: rgba(16, 22, 40, 0.17);
+
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.66);
+  --surface-card: #ffffff;
+  --surface-top: rgba(249, 250, 253, 0.82);
+  --surface-foot: rgba(226, 231, 241, 0.5);
+  --surface-hero: rgba(255, 255, 255, 0.34);
+  --scrim: rgba(24, 30, 44, 0.42);
+  --scroll-thumb: #bcc5d8;
+
+  --aurora-1: rgba(143, 124, 255, 0.15);
+  --aurora-2: rgba(46, 224, 180, 0.11);
+
+  --shadow-sm: 0 1px 2px rgba(16, 22, 40, 0.08);
+  --shadow: 0 10px 30px -12px rgba(16, 22, 40, 0.2);
+  --shadow-lg: 0 28px 70px -20px rgba(16, 22, 40, 0.3);
+}
+
+/* The accent tints below (pale lavender chips, teal badges) carry their colour
+   from a low-alpha literal, which reads as a wash on white but leaves the
+   1px borders almost invisible. Firm those up rather than tokenise all of them. */
+:root[data-theme="light"] .btn--soft { border-color: rgba(98, 68, 217, 0.4); }
+:root[data-theme="light"] .review__badge { border-color: rgba(12, 142, 112, 0.45); }
+:root[data-theme="light"] .chip--score { border-color: rgba(12, 142, 112, 0.45); }
+:root[data-theme="light"] .formerror,
+:root[data-theme="light"] .toast--bad { border-color: rgba(207, 54, 54, 0.45); }
+
+/* ------------------------------------------------------------------- reset */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--ink-900);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* A quiet aurora behind everything, so flat panels have something to sit on. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 32rem at 12% -8%, var(--aurora-1), transparent 60%),
+    radial-gradient(48rem 28rem at 92% 4%, var(--aurora-2), transparent 62%),
+    var(--ink-900);
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+p { margin: 0 0 1em; }
+p:last-child { margin-bottom: 0; }
+
+a { color: inherit; text-decoration: none; }
+
+img, svg { display: block; max-width: 100%; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button { cursor: pointer; }
+
+/* Off-screen until focused, then it parks itself over the header. */
+.skip {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 200;
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--ink-800, #10141e);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.skip:focus { transform: none; }
+/* #view only takes focus programmatically, so it should not draw a ring. */
+#view:focus { outline: none; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection { background: rgba(143, 124, 255, 0.35); }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--ink-950); }
+::-webkit-scrollbar-thumb {
+  background: var(--ink-700);
+  border-radius: var(--r-pill);
+  border: 3px solid var(--ink-950);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb); }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 22px;
+}
+.wrap--narrow { max-width: 880px; }
+
+main { min-height: 70vh; padding: 34px 0 90px; }
+
+.section { margin: 0 0 44px; }
+
+.section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.section__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: var(--font);
+}
+
+.section__link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.section__link:hover { color: var(--accent-bright); }
+
+.rule { height: 1px; background: var(--line-soft); border: 0; margin: 34px 0; }
+
+/* ------------------------------------------------------------------ header */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: var(--surface-top);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.top__inner {
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- brand ---------------------------------------------------------------- */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin-right: 6px;
+}
+
+.brand__mark { width: 30px; height: 30px; flex: none; }
+
+.brand__word {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.brand__word b { font-weight: 700; }
+.brand__word span {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --- nav ------------------------------------------------------------------ */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.nav a {
+  position: relative;
+  padding: 8px 11px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: color 0.15s, background 0.15s;
+}
+.nav a:hover { color: var(--text); background: var(--lift-2); }
+.nav a.is-active { color: var(--text); }
+.nav a.is-active::after {
+  content: "";
+  position: absolute;
+  left: 11px; right: 11px; bottom: 1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--grad);
+}
+
+.top__spacer { flex: 1 1 auto; }
+
+/* --- search --------------------------------------------------------------- */
+
+.search {
+  position: relative;
+  flex: 0 1 300px;
+  min-width: 150px;
+}
+
+.search__input {
+  width: 100%;
+  height: 38px;
+  padding: 0 34px 0 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--lift-1);
+  font-size: 13.5px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.search__input::placeholder { color: var(--text-faint); }
+.search__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(143, 124, 255, 0.08);
+}
+.search__input:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
+}
+
+.search__icon {
+  position: absolute;
+  left: 12px; top: 50%;
+  transform: translateY(-50%);
+  width: 15px; height: 15px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.search__clear {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+  width: 26px; height: 26px;
+  display: none;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1;
+}
+.search__clear:hover { color: var(--text); background: var(--lift-2); }
+.search.is-filled .search__clear { display: grid; }
+
+.search__results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0; right: 0;
+  min-width: 320px;
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--ink-850);
+  box-shadow: var(--shadow-lg);
+  display: none;
+}
+.search.is-open .search__results { display: block; }
+
+.sresult {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+}
+.sresult:hover,
+.sresult.is-cursor { background: var(--lift-2); }
+.sresult__cover { width: 30px; flex: none; border-radius: 3px; overflow: hidden; }
+.sresult__t {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sresult__s { font-size: 11.5px; color: var(--text-faint); }
+.sresult__meta { min-width: 0; }
+.sresult__all {
+  display: block;
+  padding: 9px 10px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+/* --- account ------------------------------------------------------------- */
+
+.top__account { position: relative; flex: none; }
+
+.avatar {
+  width: 32px; height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0;
+  background:
+    linear-gradient(150deg, hsl(var(--h, 260) 62% 56%), hsl(calc(var(--h, 260) + 40) 58% 34%));
+  box-shadow: inset 0 0 0 1px var(--lift-ring);
+  text-transform: uppercase;
+  user-select: none;
+}
+.avatar--lg { width: 76px; height: 76px; font-size: 28px; }
+.avatar--sm { width: 26px; height: 26px; font-size: 11px; }
+.avatar--xl { width: 96px; height: 96px; font-size: 34px; }
+
+/* An uploaded picture covers the lettered gradient rather than replacing the
+   component, so every size and every caller gets it for free. */
+.avatar--img {
+  background-size: cover;
+  background-position: center;
+  color: transparent;
+}
+
+.accountbtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px 3px 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--lift-1);
+  transition: border-color 0.15s;
+}
+.accountbtn:hover { border-color: var(--ink-700); }
+.accountbtn__name { font-size: 13px; font-weight: 600; }
+.accountbtn__caret { color: var(--text-faint); font-size: 10px; }
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 208px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--ink-850);
+  box-shadow: var(--shadow-lg);
+  display: none;
+}
+.menu.is-open { display: block; }
+
+.menu__label {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.menu a, .menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text-dim);
+}
+.menu a:hover, .menu button:hover { background: var(--lift-2); color: var(--text); }
+.menu__sep { height: 1px; margin: 5px 4px; background: var(--line-soft); }
+
+/* ----------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--lift-1);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  transition: transform 0.12s, background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.btn:hover { background: var(--lift-3); border-color: var(--ink-700); }
+.btn:active { transform: translateY(1px); }
+
+.btn--primary {
+  border-color: transparent;
+  background: var(--grad);
+  color: var(--on-brand);
+  font-weight: 700;
+}
+.btn--primary:hover { filter: brightness(1.08); background: var(--grad); }
+
+.btn--soft {
+  border-color: rgba(143, 124, 255, 0.42);
+  background: rgba(143, 124, 255, 0.14);
+  color: var(--accent-bright);
+}
+.btn--soft:hover { background: rgba(143, 124, 255, 0.22); }
+
+.btn--danger { color: var(--danger); border-color: rgba(255, 107, 107, 0.35); }
+.btn--danger:hover { background: rgba(255, 107, 107, 0.12); }
+
+.btn--sm { height: 32px; padding: 0 13px; font-size: 12.5px; }
+.btn--block { width: 100%; }
+.btn[disabled] { opacity: 0.5; pointer-events: none; }
+
+.btn__ico { width: 15px; height: 15px; flex: none; }
+
+.linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+.linkbtn:hover { text-decoration: underline; }
+
+/* ------------------------------------------------------------------ covers */
+
+.cover {
+  container-type: inline-size;
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background:
+    linear-gradient(155deg,
+      hsl(var(--h, 260) 58% 42%) 0%,
+      hsl(var(--h, 260) 62% 26%) 46%,
+      hsl(calc(var(--h, 260) - 26) 64% 11%) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  user-select: none;
+}
+
+.cover__pat {
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+  mix-blend-mode: soft-light;
+}
+.cover[data-pattern="grid"] .cover__pat {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  background-size: 14% 14%;
+}
+.cover[data-pattern="rays"] .cover__pat {
+  background: repeating-conic-gradient(from 210deg at 78% 118%,
+    rgba(255, 255, 255, 0.3) 0deg 4deg, transparent 4deg 13deg);
+}
+.cover[data-pattern="orbs"] .cover__pat {
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.42), transparent 42%),
+    radial-gradient(circle at 82% 68%, rgba(255, 255, 255, 0.28), transparent 38%);
+}
+.cover[data-pattern="stripes"] .cover__pat {
+  background: repeating-linear-gradient(118deg,
+    rgba(255, 255, 255, 0.22) 0 8px, transparent 8px 26px);
+}
+.cover[data-pattern="arcs"] .cover__pat {
+  background: repeating-radial-gradient(circle at 50% 116%,
+    transparent 0 16px, rgba(255, 255, 255, 0.26) 16px 18px);
+}
+.cover[data-pattern="noise"] .cover__pat {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.34) 1.2px, transparent 1.3px);
+  background-size: 9% 7%;
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 34%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.72) 0%, transparent 62%);
+}
+
+.cover__body {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  padding: 9cqi 8cqi 8cqi;
+}
+
+.cover__title {
+  font-family: var(--display);
+  font-size: 13px;
+  font-size: 12.4cqi;
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-wrap: balance;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cover__sub {
+  margin-top: 3cqi;
+  font-size: 6.6cqi;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Real box art, when art.js finds some. It fades in over the generated cover,
+   which stays underneath as the loading state and the permanent fallback. */
+.cover__img {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.cover.has-art .cover__img { opacity: 1; }
+.cover.has-art .cover__pat,
+.cover.has-art .cover__glyph { opacity: 0; }
+.cover.has-art .cover__pat,
+.cover.has-art .cover__glyph,
+.cover.has-art .cover__body { transition: opacity 0.3s ease; }
+
+/* Box-art-shaped images fill the frame and replace the caption entirely.
+   Letterboxed and wordmark covers keep theirs, so both are excluded here —
+   otherwise this rule out-specifies the ones below and hides the caption. */
+.cover.has-art:not(.is-fitted):not(.is-wordmark) .cover__body,
+.cover.has-art:not(.is-fitted):not(.is-wordmark)::after { opacity: 0; }
+
+/* Wide key art, banners and wordmarks: letterboxed over a blurred copy of
+   themselves rather than cropped to a middle slice. These keep the caption and
+   the bottom scrim, since a wide logo alone often doesn't name the game. */
+.cover__blur {
+  position: absolute;
+  inset: -8%;
+  z-index: 2;
+  background-size: cover;
+  background-position: center;
+  filter: blur(11px) saturate(1.3) brightness(0.34);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+@supports (width: 1cqi) {
+  .cover__blur { filter: blur(4.5cqi) saturate(1.3) brightness(0.34); }
+}
+.cover.has-art .cover__blur { opacity: 1; }
+
+.cover__img--fit {
+  background-size: contain;
+  background-position: center 40%;
+}
+.cover.is-fitted .cover__body { text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
+
+/* Wordmarks — Minecraft, Fortnite, Roblox and friends have no cover art
+   anywhere, only a logo several times wider than it is tall. Sitting one on a
+   blurred copy of itself buries it, so it goes on the generated gradient with
+   the pattern left showing and a shadow to lift it off the background. */
+.cover.is-wordmark .cover__pat { opacity: 0.85; }
+.cover.is-wordmark .cover__glyph { opacity: 0; }
+.cover.is-wordmark .cover__body,
+.cover.is-wordmark::after { opacity: 1; }
+.cover.is-wordmark .cover__body { text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
+
+.cover__img--mark {
+  background-size: 84% auto;
+  background-position: center 42%;
+  filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.55));
+}
+
+/* Watermark initials, top-left, for a little cover-art variety. */
+.cover__glyph {
+  position: absolute;
+  top: -2cqi; left: 4cqi;
+  z-index: 1;
+  font-family: var(--display);
+  font-size: 46cqi;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.11);
+  letter-spacing: -0.06em;
+}
+
+/* --------------------------------------------------------------- game tile */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 20px 16px;
+}
+.grid--tight { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 16px 12px; }
+.grid--wide { grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); }
+
+.tile { display: block; position: relative; }
+
+.tile__cover {
+  position: relative;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.2s;
+  will-change: transform;
+}
+.tile:hover .tile__cover,
+.tile:focus-within .tile__cover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(143, 124, 255, 0.5);
+}
+
+/* The link to the game covers the artwork instead of wrapping the whole tile,
+   so the rating buttons can sit on top of it. */
+.tile__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+}
+
+.tile__title {
+  margin-top: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tile:hover .tile__title { color: var(--accent-bright); }
+
+.tile__sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tile__flag {
+  position: absolute;
+  top: 7px; right: 7px;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(6, 8, 14, 0.72);
+  backdrop-filter: blur(4px);
+  /* This badge sits on a dark pill on top of cover art, so it keeps the bright
+     brand teal in both themes — the light theme's darker --accent-2 is tuned for
+     contrast against white and would disappear here. Same reason the abandoned
+     flag below is a literal rather than --abandon. */
+  color: var(--brand-2);
+  font-size: 11px;
+  pointer-events: none;
+}
+.tile__flag--playing { color: var(--brand-2); }
+.tile__flag--abandoned { color: #ff9d9d; font-size: 10px; }
+
+.tile__own {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  background: linear-gradient(0deg, rgba(4, 6, 11, 0.92), transparent);
+  pointer-events: none;
+}
+/* Only the stars themselves take clicks; the rest of the strip lets the
+   cover link through. */
+.tile__own .rate__hit button { pointer-events: auto; }
+
+/* An unrated tile only shows its stars once you reach for them. */
+@media (hover: hover) {
+  .tile__own--blank {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .tile:hover .tile__own--blank,
+  .tile:focus-within .tile__own--blank { opacity: 1; }
+}
+
+/* ------------------------------------------------------------------- stars */
+
+.stars {
+  --pct: 0%;
+  position: relative;
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 1.5px;
+  color: var(--star-off);
+  white-space: nowrap;
+}
+.stars::before { content: "★★★★★"; }
+.stars__fill {
+  position: absolute;
+  inset: 0;
+  width: var(--pct);
+  overflow: hidden;
+  color: var(--star);
+}
+.stars__fill::before { content: "★★★★★"; }
+.stars--lg { font-size: 20px; letter-spacing: 2.5px; }
+.stars--sm { font-size: 11px; letter-spacing: 1px; }
+
+.heart { color: var(--heart); font-size: 12px; line-height: 1; }
+
+/* --- star input ---------------------------------------------------------- */
+
+.rate {
+  position: relative;
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+}
+.rate__track {
+  position: relative;
+  display: inline-block;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 4px;
+  color: var(--star-off);
+  pointer-events: none;
+}
+.rate__track::before { content: "★★★★★"; }
+.rate__on {
+  position: absolute;
+  inset: 0;
+  width: var(--pct, 0%);
+  overflow: hidden;
+  color: var(--star);
+  transition: width 0.08s linear;
+}
+.rate__on::before { content: "★★★★★"; }
+.rate__hit {
+  position: absolute;
+  inset: -6px -4px;
+  display: flex;
+}
+.rate__hit button {
+  flex: 1;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0;
+  color: transparent;
+}
+.rate__hit button:focus-visible { outline-offset: -2px; }
+
+/* Instant-save variants: tiny on a grid tile, large on a game page. */
+.rate--mini { height: 15px; }
+.rate--mini .rate__track { font-size: 12px; letter-spacing: 1.6px; }
+.rate--mini .rate__hit { inset: -5px -3px; }
+
+.rate--lg { height: 38px; }
+.rate--lg .rate__track { font-size: 30px; letter-spacing: 5px; }
+
+/* --------------------------------------------------- play state controls */
+
+.seg {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-pill);
+  background: var(--ink-900);
+}
+/* Three labels do not fit across the game-page sidebar at any readable size:
+   "Abandoned" alone wants 71px of the ~156px left after padding once the
+   column narrows to 200px. Rather than let the text escape the pill, the
+   sidebar copy of the control stacks. */
+.seg--stack {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  border-radius: var(--r);
+}
+.seg--stack .seg__btn {
+  height: 32px;
+  padding: 0 12px;
+  text-align: left;
+  border-radius: calc(var(--r) - 4px);
+}
+
+.seg__btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 29px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.seg__btn:hover { color: var(--text); background: var(--lift-2); }
+/* Neutral active state, for segments that are not a play state. */
+.seg__btn.is-on { background: var(--lift-3); color: var(--text); }
+.seg__btn.is-on[data-status="playing"] {
+  background: rgba(46, 224, 180, 0.16);
+  color: var(--accent-2);
+}
+.seg__btn.is-on[data-status="finished"] {
+  background: rgba(143, 124, 255, 0.2);
+  color: var(--accent-bright);
+}
+.seg__btn.is-on[data-status="abandoned"] {
+  background: rgba(255, 107, 107, 0.14);
+  color: var(--abandon);
+}
+
+.statechip {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.statechip--playing { background: rgba(46, 224, 180, 0.15); color: var(--accent-2); }
+.statechip--finished { background: rgba(143, 124, 255, 0.16); color: var(--accent-bright); }
+.statechip--abandoned { background: rgba(255, 107, 107, 0.13); color: var(--abandon); }
+.feed__date .statechip { margin-right: 7px; }
+
+/* --------------------------------------------------------------- histogram */
+
+.hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 52px;
+}
+.hist__col {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--lift-1);
+}
+.hist__bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+  transition: filter 0.15s;
+}
+.hist__col:hover .hist__bar { filter: brightness(1.3); }
+.hist__col[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--ink-800);
+  box-shadow: var(--shadow);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hist__legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* -------------------------------------------------------------------- hero */
+
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 26px;
+  align-items: center;
+  padding: 26px;
+  margin: 0 0 44px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: linear-gradient(120deg, var(--ink-850), var(--surface-hero));
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(38rem 22rem at 82% 120%,
+    hsl(var(--h, 260) 60% 40% / 0.35), transparent 70%);
+}
+.hero > * { position: relative; z-index: 1; }
+
+.hero__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.hero__title { margin: 8px 0 6px; font-size: clamp(26px, 3.4vw, 40px); }
+.hero__meta { color: var(--text-dim); font-size: 13.5px; }
+.hero__blurb { margin: 12px 0 18px; color: var(--text-dim); max-width: 54ch; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hero__poster { box-shadow: var(--shadow-lg); border-radius: var(--r); overflow: hidden; }
+
+/* --------------------------------------------------------------- game page */
+
+.gp { display: grid; grid-template-columns: 254px 1fr; gap: 34px; align-items: start; }
+.gp__aside { position: sticky; top: calc(var(--head-h) + 22px); }
+.gp__poster { border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow-lg); }
+.gp__actions { display: grid; gap: 8px; margin-top: 16px; }
+
+.gp__quick {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.gp__quick + .gp__actions { margin-top: 10px; }
+.gp__quick-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.gp__head { margin-bottom: 20px; }
+.gp__title { font-size: clamp(28px, 4vw, 42px); }
+.gp__sub {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.gp__sub b { color: var(--text); font-weight: 600; }
+.gp__blurb { margin-top: 16px; font-size: 16.5px; line-height: 1.62; color: var(--prose); max-width: 62ch; }
+
+.panel {
+  padding: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 26px;
+  align-items: center;
+}
+.scoreboard__big {
+  font-family: var(--display);
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.scoreboard__of { font-size: 15px; color: var(--text-faint); font-weight: 600; }
+.scoreboard__count { margin-top: 6px; font-size: 12px; color: var(--text-faint); }
+
+.facts { display: grid; gap: 14px; margin-top: 22px; }
+.fact__k {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.fact__v { font-size: 14px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 27px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--lift-1);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+a.chip:hover {
+  color: var(--accent-bright);
+  border-color: rgba(143, 124, 255, 0.5);
+  background: rgba(143, 124, 255, 0.1);
+}
+.chip--score { color: var(--accent-2); border-color: rgba(46, 224, 180, 0.35); }
+
+/* ----------------------------------------------------------------- reviews */
+
+.review {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.review:first-child { border-top: 0; }
+
+.review__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 7px;
+}
+.review__who { font-size: 13.5px; font-weight: 700; }
+.review__who:hover { color: var(--accent-bright); }
+.review__byline {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.review__byline:hover { color: var(--accent-bright); }
+.review__when { font-size: 12px; color: var(--text-faint); }
+.review__badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  padding: 2px 7px;
+  border: 1px solid rgba(46, 224, 180, 0.3);
+  border-radius: var(--r-pill);
+}
+.review__spec {
+  margin: -2px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.review__body { color: var(--prose); line-height: 1.66; }
+.review__body p { margin-bottom: 0.7em; }
+/* Headline of the card, sat in .review__head next to the stars. */
+.review__game { font-size: 14.5px; font-weight: 700; }
+.review__game:hover { color: var(--accent-bright); }
+.review__year { font-size: 12.5px; font-weight: 600; color: var(--text-faint); }
+.review__foot { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+
+.likebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  transition: color 0.15s;
+}
+.likebtn:hover { color: var(--heart); }
+.likebtn.is-on { color: var(--heart); }
+.likebtn svg { width: 14px; height: 14px; }
+
+/* ------------------------------------------------------------ conversation */
+
+/* The thread hangs off the review it belongs to. The left rule does the work
+   the review's avatar gutter does above it: it says "this is all one item". */
+.thread {
+  margin-top: 14px;
+  padding-left: 15px;
+  border-left: 2px solid var(--line);
+}
+
+.thread__list { display: grid; gap: 2px; margin-bottom: 14px; }
+
+.thread__none {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.comment {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 11px;
+  padding: 9px 10px 9px 0;
+  border-radius: var(--r-sm);
+}
+.comment:target { background: var(--lift-2); }
+.comment__main { min-width: 0; }
+
+.comment__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 9px;
+  margin-bottom: 3px;
+}
+.comment__who { font-size: 13px; font-weight: 700; }
+.comment__who:hover { color: var(--accent-bright); }
+.comment__when { font-size: 11.5px; color: var(--text-faint); }
+
+.comment__badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  padding: 1px 6px;
+  border: 1px solid rgba(143, 124, 255, 0.35);
+  border-radius: var(--r-pill);
+}
+
+.comment__body { font-size: 13.5px; line-height: 1.6; color: var(--prose); }
+.comment__body p { margin-bottom: 0.5em; }
+
+/* Always visible rather than revealed on hover. Replying is the whole point of
+   a thread, so hiding it costs more than the tidiness is worth — and a
+   hover-only affordance is unreachable on touch. They stay quiet instead:
+   11.5px and muted until you point at them. */
+.comment__foot {
+  display: flex;
+  gap: 14px;
+  margin-top: 5px;
+}
+
+.comment__foot .linkbtn {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.comment__foot .linkbtn:hover { color: var(--accent-bright); }
+.linkbtn--quiet { color: var(--text-faint); }
+.linkbtn--quiet:hover { color: var(--danger); }
+
+.mention { color: var(--accent-bright); font-weight: 600; }
+.mention:hover { text-decoration: underline; }
+
+/* --- the compose box ------------------------------------------------------ */
+
+.cform { display: grid; gap: 8px; }
+.textarea--sm { min-height: 62px; font-size: 13.5px; }
+.cform__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cform__foot .charcount { text-align: left; }
+
+.cform__out {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.cform__out a { color: var(--accent-bright); font-weight: 600; }
+.cform__out a:hover { text-decoration: underline; }
+
+/* The comment toggle sits in the review footer next to the like button. */
+.review__foot .linkbtn.is-on { color: var(--text); }
+
+/* --------------------------------------------------------------- activity */
+
+.feed { display: grid; gap: 2px; }
+.feed__row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 13px;
+  align-items: center;
+  padding: 11px 12px;
+  border-radius: var(--r);
+  transition: background 0.15s;
+}
+.feed__row:hover { background: var(--lift-1); }
+.feed__cover { width: 44px; border-radius: 4px; overflow: hidden; }
+.feed__line { font-size: 13.5px; min-width: 0; }
+.feed__line b { font-weight: 700; }
+.feed__line a:hover { color: var(--accent-bright); }
+.feed__quote {
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.feed__right { text-align: right; display: grid; gap: 4px; justify-items: end; }
+.feed__date { font-size: 11.5px; color: var(--text-faint); }
+
+/* ----------------------------------------------------------------- filters */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 22px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+.field { display: grid; gap: 5px; }
+.field__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.input, .select, .textarea {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--ink-850);
+  font-size: 13.5px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--ink-800);
+}
+/* A border tint alone is a weaker signal than the ring every other control
+   gets, and .input:focus outranks the global :focus-visible rule, so the ring
+   has to be put back explicitly at matching specificity. */
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
+    linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 17px, calc(100% - 11px) 17px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.textarea {
+  height: auto;
+  min-height: 118px;
+  padding: 11px 12px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: inherit;
+}
+.field--grow { flex: 1 1 190px; min-width: 150px; }
+.input--num { width: 118px; }
+
+/* The activity feed's two segmented controls sit on one row with the count. */
+.filters--feed { align-items: center; gap: 10px 14px; }
+.filters--feed .count { padding-bottom: 0; }
+
+.count {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  padding-bottom: 10px;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+/* One card holding a row of headline figures and, underneath, the play-state
+   proportion bar. The 1px gaps over a --line-soft backdrop draw every divider,
+   which means the rules stay correct at any column count without a pile of
+   nth-child rules per breakpoint. */
+.stats {
+  display: grid;
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.stats__row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--line-soft);
+}
+
+.stat { padding: 15px 18px 16px; background: var(--ink-850); }
+
+.stat__v {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Equal-width digits, so the numbers line up down the column instead of
+     drifting with whatever glyphs they happen to contain. */
+  font-variant-numeric: tabular-nums;
+}
+.stat__u {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-dim);
+}
+
+.stat__k {
+  margin-top: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  /* --text-dim rather than --text-faint: at 10.5px uppercase the faint token
+     measures 3.7:1 on the dark cell, and this label is the only thing naming
+     the number above it. Still well below --text in weight of colour, so the
+     figure keeps the emphasis. */
+  color: var(--text-dim);
+  /* Guaranteed single line: two-word labels wrapping was what made the old
+     block ragged. Every label is short enough to fit the narrowest cell. */
+  white-space: nowrap;
+}
+
+/* --- play-state split ----------------------------------------------------- */
+
+.stats__split { padding: 15px 18px 17px; background: var(--ink-850); }
+
+.split__bar {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.split__seg { display: block; min-width: 4px; border-radius: var(--r-pill); }
+.split__seg--finished { background: var(--accent); }
+.split__seg--playing { background: var(--accent-2); }
+.split__seg--abandoned { background: var(--danger); }
+
+.split__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 18px;
+  margin-top: 11px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.split__key { display: inline-flex; align-items: center; gap: 7px; }
+.split__key::before {
+  content: "";
+  width: 8px; height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dot);
+}
+.split__key b {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.split__key--finished { --dot: var(--accent); }
+.split__key--playing { --dot: var(--accent-2); }
+.split__key--abandoned { --dot: var(--danger); }
+
+@media (max-width: 900px) {
+  .stats__row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .stats__row { grid-template-columns: repeat(2, 1fr); }
+  .stat { padding: 13px 14px 14px; }
+  .stat__v { font-size: 26px; }
+}
+
+/* ---------------------------------------------------------------- profiles */
+
+.profile__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+.profile__id { flex: 1 1 260px; min-width: 0; }
+.profile__act { flex: none; margin-left: auto; }
+.profile__name { font-size: 28px; }
+.profile__handle {
+  color: var(--text-faint);
+  font-size: 13.5px;
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.profile__bio { margin-top: 8px; color: var(--text-dim); max-width: 60ch; }
+
+.profile__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.profile__counts b { color: var(--text); font-weight: 700; }
+.profile__counts a:hover { color: var(--accent-bright); }
+.profile__counts a:hover b { color: var(--accent-bright); }
+
+/* Wider than the 258px these were before the follow button arrived: the button
+   is ~100px of nowrap, and at the old width it squeezed the handle, bio and
+   stats into three wrapped lines each. */
+.memberlist {
+  display: grid;
+  /* min() so the track collapses to the container below 340px — a bare
+     minmax(340px, …) keeps the full 340 and pushes the card past the page's
+     content edge on a phone. */
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: 14px;
+}
+.mcard {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.mcard:hover { border-color: var(--ink-700); transform: translateY(-2px); }
+
+/* The link covers the card so the follow button can live inside it — a button
+   nested in an anchor is invalid and swallows its own clicks. Same trick as
+   the rating strip on a game tile. */
+.mcard__hit { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+/* 200px is the point below which the bio starts wrapping every three words —
+   past that the button drops to its own line instead of squeezing the text. */
+.mcard__meta { min-width: 0; flex: 1 1 200px; }
+.mcard__do { position: relative; z-index: 2; flex: none; }
+/* Indented to the text column (32px avatar + 13px gap) rather than the card
+   edge, so the wrapped button still reads as part of the same block. */
+.mcard { flex-wrap: wrap; }
+.mcard__do:not(:only-child) { margin-left: auto; }
+.mcard__meta + .mcard__do { margin-left: auto; }
+
+.mcard__name { font-size: 14.5px; font-weight: 700; }
+.mcard__handle { font-size: 12px; color: var(--text-faint); }
+
+.mcard__dot { margin: 0 6px; opacity: 0.5; }
+
+/* --- taste match ---------------------------------------------------------- */
+
+.matchpill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: var(--band-bg);
+  color: var(--band-fg);
+}
+.matchpill--strong  { --band-bg: rgba(46, 224, 180, 0.16); --band-fg: var(--accent-2); }
+.matchpill--similar { --band-bg: rgba(143, 124, 255, 0.18); --band-fg: var(--accent-bright); }
+/* --text-dim, not --text-faint: on the lift tint the faint token measures
+   3.2:1, and the lower two bands are the ones people most need to read. */
+.matchpill--some    { --band-bg: var(--lift-3); --band-fg: var(--text-dim); }
+.matchpill--weak    { --band-bg: var(--lift-2); --band-fg: var(--text-dim); }
+
+.taste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 24px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+/* The score reads as one object: a big figure with its band underneath, tinted
+   to the same scale the pills use so the two are obviously the same measure. */
+.taste__score {
+  flex: none;
+  min-width: 116px;
+  padding: 14px 18px;
+  border-radius: var(--r);
+  text-align: center;
+  background: var(--band-bg);
+  color: var(--band-fg);
+}
+.taste__score--strong  { --band-bg: rgba(46, 224, 180, 0.14); --band-fg: var(--accent-2); }
+.taste__score--similar { --band-bg: rgba(143, 124, 255, 0.16); --band-fg: var(--accent-bright); }
+.taste__score--some    { --band-bg: var(--lift-2); --band-fg: var(--text-dim); }
+.taste__score--weak    { --band-bg: var(--lift-2); --band-fg: var(--text-dim); }
+
+/* The figure itself always takes full text colour — tinting it to the band
+   pushed the lower two bands to 3.2:1, and the tinted panel behind it already
+   carries the band. Only the caption underneath is tinted. */
+.taste__pct {
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.taste__pct span { font-size: 19px; margin-left: 1px; }
+.taste__band {
+  margin-top: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.taste__detail { flex: 1 1 300px; min-width: 0; }
+
+.taste__lead {
+  margin: 0 0 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.taste__basis {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.taste__group + .taste__group { margin-top: 14px; }
+.taste__k {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  /* Same reasoning as .stat__k — --text-faint is 3.7:1 at this size on dark. */
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.taste__none { font-size: 13px; color: var(--text-dim); margin: 0; }
+
+.taste__clash { display: grid; gap: 6px; }
+.taste__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+.taste__game { font-weight: 600; }
+.taste__game:hover { color: var(--accent-bright); }
+.taste__vs { color: var(--text-dim); font-size: 12.5px; }
+.taste__vs b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.section__note {
+  margin: -8px 0 16px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  max-width: 62ch;
+}
+
+.mcard__tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  vertical-align: 1px;
+}
+.mcard__bio {
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mcard__stats { margin-top: 9px; font-size: 11.5px; color: var(--text-faint); }
+
+/* ------------------------------------------------------------------- modal */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: none;
+  place-items: center;
+  padding: 22px;
+  background: var(--scrim);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  overflow-y: auto;
+}
+.modal.is-open { display: grid; }
+
+.modal__panel {
+  width: 100%;
+  max-width: 620px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--ink-850);
+  box-shadow: var(--shadow-lg);
+  animation: pop 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.modal__title { font-size: 18px; }
+.modal__sub { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
+.modal__x {
+  margin-left: auto;
+  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lift-2);
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+}
+.modal__x:hover { background: var(--lift-3); color: var(--text); }
+.modal__body { padding: 20px; }
+.modal__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line-soft);
+}
+.modal__foot .btn:first-of-type { margin-left: auto; }
+
+.logrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 26px;
+  margin-bottom: 18px;
+}
+.logrow__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.check input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--ink-800);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.check input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.check input:checked::after {
+  content: "✓";
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-accent);
+  line-height: 1;
+}
+.check:hover { color: var(--text); }
+
+/* -------------------------------------------------------------------- auth */
+
+.auth { max-width: 430px; margin: 40px auto; }
+.auth__card {
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+}
+.auth__mark { width: 44px; height: 44px; margin-bottom: 16px; }
+.auth__title { font-size: 24px; }
+.auth__sub { margin-top: 6px; color: var(--text-dim); font-size: 13.5px; }
+
+.tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin: 20px 0 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-pill);
+  background: var(--ink-900);
+}
+.tabs button {
+  flex: 1;
+  height: 33px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s;
+}
+.tabs button.is-on { background: var(--lift-3); color: var(--text); }
+
+.form { display: grid; gap: 13px; }
+.form .field { gap: 6px; }
+
+.formerror {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  border-radius: var(--r-sm);
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--danger-soft);
+  font-size: 13px;
+}
+
+.demoaccounts {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+.demoaccounts__t {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+.demolist { display: grid; gap: 7px; }
+.demo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  background: var(--lift-1);
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.demo:hover { border-color: var(--accent); background: rgba(143, 124, 255, 0.08); }
+.demo__u { font-size: 13px; font-weight: 700; }
+.demo__d { font-size: 11.5px; color: var(--text-faint); }
+.demo__name { display: block; font-size: 11.5px; color: var(--text-faint); }
+.demo__go { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--accent-bright); }
+
+.note {
+  margin-top: 14px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+/* ------------------------------------------------------------------ toasts */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 17px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--ink-800);
+  box-shadow: var(--shadow-lg);
+  font-size: 13.5px;
+  font-weight: 600;
+  animation: rise 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.toast--bad { border-color: rgba(255, 107, 107, 0.4); color: var(--danger-soft); }
+.toast.is-out { opacity: 0; transform: translateY(8px); transition: 0.3s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------------ states */
+
+.empty {
+  padding: 48px 24px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  color: var(--text-faint);
+}
+.empty__t { font-family: var(--display); font-size: 17px; color: var(--text-dim); margin-bottom: 6px; }
+
+.more { display: grid; place-items: center; margin-top: 34px; }
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.crumb a:hover { color: var(--accent-bright); }
+
+.pagehead { margin-bottom: 24px; }
+.pagehead h1 { font-size: clamp(24px, 3.2vw, 34px); }
+.pagehead p { margin-top: 8px; color: var(--text-dim); max-width: 62ch; }
+
+/* ------------------------------------------------------------------ footer */
+
+.foot {
+  border-top: 1px solid var(--line-soft);
+  padding: 30px 0 44px;
+  background: var(--surface-foot);
+}
+.foot__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.foot__inner nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.foot__inner nav a:hover { color: var(--accent-bright); }
+.foot__brand { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--text-dim); }
+.foot__brand svg { width: 22px; height: 22px; }
+
+/* ---------------------------------------------------------------- messages */
+
+/* A dot on the avatar button rather than a number: the count is one click away
+   in the menu, and a numeric badge up here fights the caret for room. */
+.accountbtn__dot {
+  width: 7px; height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 2px var(--ink-900);
+}
+
+.menu__count {
+  margin-left: auto;
+  min-width: 19px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Page title on the left, its action on the right; stacks on a narrow screen
+   rather than squeezing the heading. */
+.pagehead--row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 20px;
+}
+.pagehead--row > div:first-child { flex: 1 1 320px; min-width: 0; }
+.pagehead__act { flex: none; margin-left: auto; }
+@media (max-width: 560px) {
+  .pagehead__act { margin-left: 0; }
+}
+
+/* --- recipient picker ----------------------------------------------------- */
+
+.picklist {
+  display: grid;
+  gap: 2px;
+  margin-top: 12px;
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  transition: background 0.15s;
+}
+.pick:hover { background: var(--lift-2); }
+.pick__meta { display: grid; min-width: 0; flex: 1 1 auto; }
+.pick__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pick__handle { font-size: 11.5px; color: var(--text-faint); }
+
+.pick__tag {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+.pick__none {
+  padding: 22px 10px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.convlist {
+  display: grid;
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.conv {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  background: var(--ink-850);
+  transition: background 0.15s;
+}
+.conv:hover { background: var(--ink-800); }
+.conv__meta { flex: 1 1 auto; min-width: 0; }
+.conv__top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.conv__name { font-size: 14px; font-weight: 700; }
+.conv__when {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.conv__preview {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conv.is-unread .conv__preview { color: var(--text); font-weight: 600; }
+
+.conv__badge {
+  flex: none;
+  min-width: 21px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- one thread ----------------------------------------------------------- */
+
+.thread__head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.thread__name { margin: 0; font-size: 17px; font-weight: 700; font-family: var(--display); }
+.thread__name a:hover { color: var(--accent-bright); }
+.thread__handle { font-size: 12.5px; color: var(--text-faint); }
+
+/* Its own scroller so a long history does not push the compose box off the
+   page — the box stays put and the log moves behind it. */
+.msgs {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding: 4px 2px 8px;
+  margin-bottom: 14px;
+}
+.msgs__none {
+  padding: 26px 0;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.msg__day {
+  margin: 16px 0 12px;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.msg__day:first-child { margin-top: 0; }
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: min(78%, 520px);
+  margin-bottom: 10px;
+}
+.msg--mine { align-items: flex-end; margin-left: auto; }
+
+.msg__bubble {
+  padding: 9px 13px;
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-sm);
+  background: var(--ink-800);
+  border: 1px solid var(--line-soft);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.msg__bubble p { margin-bottom: 0.5em; }
+.msg--mine .msg__bubble {
+  border-bottom-left-radius: var(--r-lg);
+  border-bottom-right-radius: var(--r-sm);
+  background: rgba(143, 124, 255, 0.16);
+  border-color: rgba(143, 124, 255, 0.28);
+}
+.msg__meta { margin-top: 3px; font-size: 10.5px; color: var(--text-faint); }
+
+.mform { display: grid; gap: 8px; }
+
+.mform__shut {
+  padding: 14px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.mform__shut b { color: var(--text); }
+.mform__do { margin-top: 11px; }
+
+/* ---------------------------------------------------------------- settings */
+
+.settings { max-width: 660px; }
+
+.card {
+  padding: 20px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.card__t { font-size: 16px; margin-bottom: 3px; }
+.card__d {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  margin-bottom: 18px;
+  max-width: 56ch;
+}
+
+/* The picture sits beside its controls, and drops below them on a phone. */
+.pic {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.pic__do { display: grid; gap: 8px; }
+.pic__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pic__hint { font-size: 11.5px; color: var(--text-faint); }
+
+/* A file input styled as a button: the real control is opacity 0 on top of the
+   label, so it keeps its keyboard behaviour and its native file picker. */
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
+/* Ten fixed hues rather than a colour wheel — every one is legible against
+   both themes, which an arbitrary picker cannot promise. */
+.hues { display: flex; flex-wrap: wrap; gap: 7px; }
+.hue {
+  width: 30px; height: 30px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: linear-gradient(150deg,
+    hsl(var(--h) 62% 56%), hsl(calc(var(--h) + 40) 58% 34%));
+  box-shadow: inset 0 0 0 1px var(--lift-ring);
+  transition: transform 0.12s;
+}
+.hue:hover { transform: scale(1.1); }
+.hue.is-on {
+  box-shadow: inset 0 0 0 1px var(--lift-ring), 0 0 0 2px var(--ink-900),
+    0 0 0 4px var(--accent);
+}
+
+.charcount { font-size: 11.5px; color: var(--text-faint); text-align: right; }
+/* A review can run long, so its counter only surfaces near the ceiling —
+   visibility:hidden rather than display:none to keep the field from reflowing
+   the moment it appears. */
+.charcount--review { display: block; margin-top: 5px; }
+.charcount--review.is-quiet { visibility: hidden; }
+
+/* .form is a grid, which would otherwise stretch this to the full width and make
+   it read as a page-level call to action rather than "save these fields". */
+.card .form > .btn { justify-self: start; }
+
+/* One row per choice: a label and its description on the left, the control on
+   the right, so the page reads as a list of settings rather than a form. */
+.setrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 20px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.setrow:first-of-type { border-top: 0; padding-top: 0; }
+.setrow__k { font-size: 13.5px; font-weight: 600; }
+.setrow__d { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
+.setrow__v { font-size: 13.5px; color: var(--text-dim); }
+.setrow > div:first-child { min-width: 0; }
+
+/* -------------------------------------------------------------- responsive */
+
+@media (max-width: 1080px) {
+  .gp { grid-template-columns: 200px 1fr; gap: 26px; }
+}
+
+@media (max-width: 900px) {
+  .nav a { padding: 8px 8px; font-size: 13px; }
+  .search { flex-basis: 210px; }
+  .accountbtn__name { display: none; }
+}
+
+@media (max-width: 760px) {
+  main { padding-top: 24px; }
+  .top__inner { height: auto; padding: 10px 0; flex-wrap: wrap; row-gap: 10px; }
+  .nav { order: 3; width: 100%; margin: 0; overflow-x: auto; }
+  .top__spacer { display: none; }
+  .search { order: 2; flex: 1 1 auto; }
+  .search__results { min-width: 0; }
+  .hero { grid-template-columns: 108px 1fr; gap: 18px; padding: 18px; }
+  .gp { grid-template-columns: 1fr; }
+  .gp__aside {
+    position: static;
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  .gp__actions { margin-top: 0; }
+  /* Stack the score over the histogram so the bars get the full width. */
+  .scoreboard { grid-template-columns: 1fr; gap: 18px; }
+  .feed__row { grid-template-columns: 40px 1fr; }
+  .feed__right { grid-column: 2; justify-items: start; text-align: left; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 16px 12px; }
+}
+
+/* The poster-beside-panel aside needs 148px + gap + the large rating strip,
+   and that strip is ten 16px buttons that cannot compress. Below roughly
+   368px the pair no longer fits and the page scrolls sideways, so stack them
+   instead — 360px is a mainstream phone width, not an edge case. */
+@media (max-width: 420px) {
+  .gp__aside { grid-template-columns: 1fr; gap: 14px; }
+}
+
+@media (max-width: 460px) {
+  .brand__word { display: none; }
+  /* Same reasoning as the sidebar: on a narrow phone the row of three play
+     states would run out of the log form too, and stacked rows are easier to
+     hit. Scoped to the modal — the activity feed's two-option segments fit
+     side by side at this width and look silly stacked. */
+  .modal .seg {
+    display: grid;
+    width: 100%;
+    gap: 3px;
+    border-radius: var(--r);
+  }
+  .modal .seg .seg__btn {
+    height: 32px;
+    padding: 0 12px;
+    text-align: left;
+    border-radius: calc(var(--r) - 4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- loading */
+/* Phase 4 made view builders asynchronous, so a page can now be in flight.
+   These only appear after a short delay (see render in app.js) — flashing grey
+   boxes for 30ms is worse than a brief pause, and on the local backend the
+   promise resolves in the same tick. */
+
+.skel { padding: 8px 0 40px; }
+
+.skel__sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skel__line,
+.skel__tile,
+.skel__hero {
+  background: var(--panel-2);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skel__line { height: 18px; width: 220px; margin: 0 0 18px; }
+.skel__line--wide { width: 340px; height: 30px; }
+.skel__hero { height: 220px; margin-bottom: 22px; }
+
+.skel__grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.skel__tile { aspect-ratio: 2 / 3; }
+
+/* A slow, low-contrast sweep. Deliberately subtle: a placeholder that draws
+   attention competes with the content it is standing in for. */
+.skel__line::after,
+.skel__tile::after,
+.skel__hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg,
+    transparent, rgba(255, 255, 255, .055), transparent);
+  animation: skel-sweep 1.35s infinite;
+}
+
+@keyframes skel-sweep { 100% { transform: translateX(100%); } }
+
+/* Readers who ask for less motion get a static block rather than a sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .skel__line::after,
+  .skel__tile::after,
+  .skel__hero::after { animation: none; }
+}
+
+/* ------------------------------------------------------------------ failed */
+/* Distinct from .empty on purpose. "No games match those filters" and "we
+   could not ask the server" look identical if both render as an empty grid,
+   and only one of them is something the reader can act on. */
+
+.empty--failed {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  background: color-mix(in srgb, var(--bad) 7%, var(--panel));
+}
+
+.empty__actions { margin-top: 16px; }

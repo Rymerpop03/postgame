@@ -1,0 +1,226 @@
+name: CI
+
+# Phase 1 of postgame/BACKEND-PLAN.md. Every job here is blocking. The point of building
+# these before there is anything to protect is that we never have to retrofit them.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  # Cheap, dependency-free checks. Run first so a mistake is caught in seconds rather than
+  # after a full install.
+  gates:
+    name: Security gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks needs history to scan it.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: No string interpolation near SQL
+        working-directory: api
+        run: python tools/check_sql_interpolation.py app tools tests
+
+      - name: Every route declares an authorization policy
+        working-directory: api
+        run: python tools/check_route_policies.py app
+
+      - name: CSP hash matches the inline script in index.html
+        working-directory: api
+        run: |
+          python tools/csp_hash.py ../postgame/index.html \
+            --check "$PG_CSP_INLINE_SCRIPT_SHA256"
+        env:
+          # Not a secret — it is a hash of a public file. Kept here so the gate has one
+          # source of truth alongside the deployed config.
+          PG_CSP_INLINE_SCRIPT_SHA256: "sha256-wUSIVEqO+PH+odmhgSQM3zn2YwO5xKTlSifxtLg2E9o="
+
+      - name: Secret scanning
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Last in this job on purpose. It is EXPECTED TO FAIL until the repository has a real
+      # owner on GitHub — §0.3.1 condition 5 — and putting it last means the gates above
+      # still run and report first. A CODEOWNERS file naming an account that does not exist
+      # is worse than none: GitHub assigns nobody, the review rule never fires, and the
+      # repository looks protected in exactly the way it is not.
+      - name: CODEOWNERS names a real owner
+        working-directory: api
+        run: python tools/check_codeowners.py
+
+  lint:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        working-directory: api
+        run: pip install -e ".[dev]"
+
+      - name: ruff
+        working-directory: api
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: mypy
+        working-directory: api
+        run: mypy
+
+      # pyproject.toml carries lower bounds, which is what a project should declare. A
+      # deployment installs from the lock, so the lock has to be current — otherwise the
+      # image is built from versions nobody reviewed.
+      - name: Lock files are current
+        working-directory: api
+        run: python tools/freeze_lock.py --check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Pinned to the major version decision 0.1 records. Dev, CI and production sharing a
+        # major version matters more than being current.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci_superuser_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ci_superuser_only
+      PG_TEST_DATABASE_URL: postgresql+psycopg://postgame_app:dev_app_only@localhost:5432/postgame_test
+      PG_TEST_MIGRATE_DATABASE_URL: postgresql+psycopg://postgame_migrate:dev_migrate_only@localhost:5432/postgame_test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        working-directory: api
+        run: pip install -e ".[dev]"
+
+      - name: Bootstrap roles and databases
+        working-directory: api
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -f ops/bootstrap_01_cluster.sql
+          psql -v ON_ERROR_STOP=1 -d postgame      -f ops/bootstrap_02_schema.sql
+          psql -v ON_ERROR_STOP=1 -d postgame_test -f ops/bootstrap_02_schema.sql
+
+      - name: Migrate
+        working-directory: api
+        env:
+          PG_MIGRATE_DATABASE_URL: postgresql+psycopg://postgame_migrate:dev_migrate_only@localhost:5432/postgame_test
+        run: alembic upgrade head
+
+      # The ten demo members (decision 0.8). Phase 5 asserts they cannot be signed into,
+      # and that assertion needs them to exist — a test that finds no demo accounts and
+      # concludes none can be signed into would be the emptiest kind of green tick.
+      - name: Seed the demo members
+        working-directory: api
+        run: python tools/seed_members.py --database-url "$PG_TEST_DATABASE_URL"
+
+      - name: pytest
+        working-directory: api
+        run: pytest -q
+
+      # BACKEND-PLAN.md §0.3.1 condition 1. Blocking, and at the full sample count the
+      # condition names — the suite runs a smaller version of this for speed, and this is
+      # the one that decides.
+      #
+      # A regression here is invisible in every other way: the responses stay byte-identical
+      # and every other test stays green while a stopwatch quietly learns which addresses
+      # have accounts.
+      - name: Login timing indistinguishability
+        working-directory: api
+        run: |
+          python tools/check_login_timing.py --samples 1000 --database-url "$PG_TEST_DATABASE_URL"
+
+      # The whole pre-deploy checklist, run against a staging-shaped configuration. It is
+      # not a substitute for running it in the target container — the Argon2 cost check is
+      # about a specific machine and is skipped here for exactly that reason — but it proves
+      # the tool works and catches a missing security.txt, a stale lock or a broken CSP hash
+      # at the commit that caused them rather than at the deploy.
+      - name: Deployment readiness
+        working-directory: api
+        env:
+          PG_ENV: staging
+          PG_DEBUG: "false"
+          PG_SECRET_KEY: ci-only-Zq7mR4tVbN2xKcW9pLd3JhFgY6sUaE5oQiTnXvMyHrB8
+          PG_DATABASE_URL: postgresql+psycopg://postgame_app:dev_app_only@localhost:5432/postgame_test
+          PG_APP_ORIGIN: https://staging.postgame.app
+          PG_IMAGE_ORIGIN: https://img-staging.postgame.app
+          PG_CSP_INLINE_SCRIPT_SHA256: "sha256-wUSIVEqO+PH+odmhgSQM3zn2YwO5xKTlSifxtLg2E9o="
+          PG_RATE_LIMIT_BACKEND: postgres
+          PG_FRONTEND_DIR: ../postgame
+          PG_HOST: 0.0.0.0
+          PG_TRUSTED_PROXY_IPS: 10.0.0.1
+        run: python tools/check_deploy_ready.py --skip-cost
+
+      # A database test that skipped is a test that did not run. On this job the database is
+      # guaranteed present, so any skip means the connection details are wrong and the schema
+      # checks quietly proved nothing — which is the exact failure mode this project keeps
+      # hitting. Fail rather than show a green tick.
+      - name: Database tests must not skip
+        working-directory: api
+        run: |
+          pytest -q -m db --no-header -rs > db-tests.log 2>&1 || true
+          cat db-tests.log
+          if grep -qi "skipped" db-tests.log; then
+            echo "::error::database tests were skipped on a job that provides a database"
+            exit 1
+          fi
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        working-directory: api
+        run: pip install -e ".[dev]"
+
+      - name: pip-audit
+        working-directory: api
+        # Zero unresolved highs. Every medium needs a written decision in
+        # postgame/DEPENDENCIES.md before it can be ignored here.
+        run: pip-audit --strict --desc

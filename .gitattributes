@@ -1,0 +1,22 @@
+# Every text file is LF in the repository and in the working tree, on every platform.
+#
+# This machine is Windows, CI is Linux, and the tree is LF today. Without this file a
+# checkout with `core.autocrlf=true` would rewrite every line ending, and the first diff
+# after that would touch every file in the project. It would also change the bytes of
+# index.html — app/security/csp.py normalises CRLF before hashing precisely because that has
+# bitten projects before, but the normalisation is a backstop, not a reason to allow it.
+* text=auto eol=lf
+
+# Binary, so git never tries to diff or convert them.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.woff2 binary
+
+# 166,241 generated lines. Marked so diffs and language statistics skip it; regenerate it
+# with api/tools/build_password_list.py rather than editing it.
+api/app/security/data/common_passwords.txt linguist-generated=true -diff
+api/requirements.lock      linguist-generated=true
+api/requirements-dev.lock  linguist-generated=true

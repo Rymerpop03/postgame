@@ -1,0 +1,20 @@
+# Postgame — crawler policy.
+#
+# The catalogue and public reviews are meant to be found. The API is not: it returns JSON, so a
+# crawler indexing it wastes its budget and ours for no benefit, and /api/csp-report is a POST
+# endpoint that has no business in an index at all.
+#
+# Note this file cannot protect anything. It is a request, and a scraper that ignores it faces no
+# obstacle here. Authorisation is enforced in the application; this is only about crawler
+# etiquette and index hygiene.
+#
+# Staging must serve a different file — Disallow: / plus a noindex header — because decision 0.10
+# says staging is noindex and a robots.txt alone does not achieve that.
+
+User-agent: *
+Disallow: /api/
+Allow: /
+
+# Hash-routed single page app: every route is served by /index.html, so there is nothing else to
+# list. A sitemap arrives with Phase 3, when game pages become server-rendered enough to be worth
+# indexing individually.
