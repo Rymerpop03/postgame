@@ -146,6 +146,15 @@ jobs:
           PG_MIGRATE_DATABASE_URL: postgresql+psycopg://postgame_migrate:dev_migrate_only@localhost:5432/postgame_test
         run: alembic upgrade head
 
+      # The 2,000 games. The catalogue API tests assert `total == 2000` and the readiness
+      # step below refuses a database with fewer than 1,000 games, so without this both fail.
+      # They passed on the development machine only because its test database was seeded by
+      # hand in Phase 3, which CI never knew about. Found before the first CI run, not by it.
+      # Idempotent, and runs as postgame_app: seeding is DML, not DDL.
+      - name: Seed the catalogue
+        working-directory: api
+        run: python tools/seed_catalogue.py --url "$PG_TEST_DATABASE_URL"
+
       # The ten demo members (decision 0.8). Phase 5 asserts they cannot be signed into,
       # and that assertion needs them to exist — a test that finds no demo accounts and
       # concludes none can be signed into would be the emptiest kind of green tick.
