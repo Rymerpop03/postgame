@@ -577,7 +577,8 @@ stylesheets loading and inline style attributes working.
   `fonts.googleapis.com` and `fonts.gstatic.com` remain in the CSP. Fold into Phase 12, which
   removes the other external origins anyway.
 - **`CODEOWNERS` has a placeholder owner.** `@OWNER` must be replaced, or condition 5 of
-  §0.3.1 protects nothing while looking like a control.
+  §0.3.1 protects nothing while looking like a control. *Resolved at the first push to GitHub:
+  owned by `@Rymerpop03`, with a CI gate against the placeholder returning.*
 
 ---
 
@@ -1071,7 +1072,7 @@ kind about.
 | 2 | Enumeration compares **full response bytes** | `tests/test_auth_enumeration.py`. Status, every header and the body, with only `Date` and `X-Request-ID` excluded — and a second test asserts those are the *only* differences, so the exclusion list cannot quietly grow |
 | 3 | The dummy-hash path has **its own named test** | `test_an_absent_stored_hash_still_costs_a_real_argon2_verification`, which counts Argon2 calls rather than timing them |
 | 4 | Session rotation **asserted**, on login and on credential change | `test_login_issues_a_new_session_and_kills_the_old_one` and `test_revoking_siblings_spares_the_current_session` |
-| 5 | `api/app/security/` is a **protected path** | Already in `.github/CODEOWNERS`. Still carrying the `@OWNER` placeholder — a CODEOWNERS file naming a non-existent owner protects nothing while looking like a control |
+| 5 | `api/app/security/` is a **protected path** | In `.github/CODEOWNERS`, owned by `@Rymerpop03` since the first push to GitHub. `tools/check_codeowners.py` fails CI if a placeholder ever returns |
 | 6 | **ASVS V2 reviewed item by item**, committed | `postgame/ASVS-V2-CHECKLIST.md`. 57 items: 15 met, 3 partial, 9 deferred to Phase 6, 1 accepted with reason, 29 not applicable |
 | 7 | A defined **bail-out** to a hosted provider | Not invoked. Conditions 1 and 2 were met with room to spare, which is the test the bail-out was attached to |
 

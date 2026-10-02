@@ -57,11 +57,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Last in this job on purpose. It is EXPECTED TO FAIL until the repository has a real
-      # owner on GitHub — §0.3.1 condition 5 — and putting it last means the gates above
-      # still run and report first. A CODEOWNERS file naming an account that does not exist
-      # is worse than none: GitHub assigns nobody, the review rule never fires, and the
-      # repository looks protected in exactly the way it is not.
+      # §0.3.1 condition 5. A CODEOWNERS file naming an account that does not exist is worse
+      # than none: GitHub assigns nobody, the review rule never fires, and the repository
+      # looks protected in exactly the way it is not. Kept last so the gates above still
+      # report first if a placeholder ever comes back.
       - name: CODEOWNERS names a real owner
         working-directory: api
         run: python tools/check_codeowners.py

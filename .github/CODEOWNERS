@@ -2,31 +2,27 @@
 # changes there get a deliberate second read rather than a drive-by edit. Working solo,
 # the value is the forced pause, not the second person.
 #
-# ACTION REQUIRED: replace @OWNER with the real GitHub username or team. A CODEOWNERS file
-# with a non-existent owner silently protects nothing — GitHub assigns nobody, the review
-# rule never fires, and the repository looks protected in exactly the way it is not.
+# Owner set to @Rymerpop03 when the repository was first pushed to GitHub. A CODEOWNERS
+# file naming an account that does not exist silently protects nothing — GitHub assigns
+# nobody and the review rule never fires — so `api/tools/check_codeowners.py` runs in CI
+# and fails if a placeholder ever comes back.
 #
-# This is no longer a comment asking someone to remember. `api/tools/check_codeowners.py`
-# runs in CI and FAILS while @OWNER is still here. It is expected to be red until this repo
-# has a real owner on GitHub, and that is the point: a control that has not been switched on
-# should say so, not sit quietly looking finished.
-#
-# Also required by BACKEND-PLAN.md §0.3.1 condition 5, which is why the security paths below
+# Required by BACKEND-PLAN.md §0.3.1 condition 5, which is why the security paths below
 # are listed individually rather than relying on the catch-all.
 
-*                           @OWNER
+*                           @Rymerpop03
 
 # The auth and security surface. Phases 5 and 6 carry more risk than the other fifteen
 # combined (§0.3), and these are the files where a forgotten line is invisible from the
 # outside.
-/api/app/security/          @OWNER
-/api/app/config.py          @OWNER
-/api/app/logging.py         @OWNER
+/api/app/security/          @Rymerpop03
+/api/app/config.py          @Rymerpop03
+/api/app/logging.py         @Rymerpop03
 
 # The gates themselves. Weakening a check is how a check stops working.
-/api/tools/                 @OWNER
-/.github/workflows/         @OWNER
+/api/tools/                 @Rymerpop03
+/.github/workflows/         @Rymerpop03
 
 # The decision record and the dependency allowlist.
-/postgame/BACKEND-PLAN.md   @OWNER
-/postgame/DEPENDENCIES.md   @OWNER
+/postgame/BACKEND-PLAN.md   @Rymerpop03
+/postgame/DEPENDENCIES.md   @Rymerpop03

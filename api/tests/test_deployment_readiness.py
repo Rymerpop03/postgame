@@ -279,17 +279,12 @@ class TestCodeownersGate:
         problems = self._module().problems("# only comments\n")
         assert problems and "no rules at all" in problems[0]
 
-    def test_the_real_file_is_still_on_the_placeholder(self) -> None:
-        """Expected to fail the moment a real owner is set, at which point delete this test.
-
-        Recorded as a test rather than a TODO so that filling in the owner is accompanied by
-        a red build telling you exactly what else to update.
-        """
+    def test_the_real_file_names_a_real_owner(self) -> None:
+        """Replaced the placeholder test when the repository reached GitHub. The gate
+        itself runs in CI; this keeps the same guarantee in the suite, so a placeholder
+        coming back fails locally too rather than only after a push."""
         path = Path(__file__).resolve().parent.parent.parent / ".github" / "CODEOWNERS"
-        assert "@OWNER" in path.read_text(encoding="utf-8"), (
-            "CODEOWNERS now names a real owner — delete this test and check that "
-            "tools/check_codeowners.py passes in CI."
-        )
+        assert self._module().problems(path.read_text(encoding="utf-8")) == []
 
 
 class TestContainerDefinition:

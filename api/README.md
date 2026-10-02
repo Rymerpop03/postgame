@@ -35,10 +35,9 @@ cannot be fixed in middleware — see [Server-layer hardening](#server-layer-har
 .venv/Scripts/python tools/check_deploy_ready.py --skip-cost
 ```
 
-`check_codeowners.py` is **expected to fail** until this repository has a real owner on
-GitHub. That is the point: §0.3.1 condition 5 makes `app/security/` a protected path, and a
-CODEOWNERS file naming an account that does not exist protects nothing while looking like it
-does. A control that has not been switched on should say so.
+`check_codeowners.py` fails if CODEOWNERS ever names a placeholder instead of a real
+account. §0.3.1 condition 5 makes `app/security/` a protected path, and a CODEOWNERS file
+naming an account that does not exist protects nothing while looking like it does.
 
 The first three `tools/` gates are stdlib-only and run without installing anything. The
 fourth needs the test database, and exits **2** rather than 0 when it cannot reach one — a
@@ -188,9 +187,6 @@ app origin (decision 0.9), which lands with Phase 4.
   the hundreds that made this a denial of service on the login path, so it is a throughput
   ceiling rather than a hole — but it is a one-word fix per handler and it should be measured
   and done. Phase 15.
-- **`CODEOWNERS` has a placeholder owner.** Replace `@OWNER` before it means anything — and
-  `tools/check_codeowners.py` now fails the build until you do, rather than leaving it as a
-  comment nobody rereads.
 - **The lock files pin versions, not contents.** No per-artefact hashes, so a package
   replaced on the index after the fact would install. Generating hashes needs the network at
   generation time; Phase 16.
